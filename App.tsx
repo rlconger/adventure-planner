@@ -295,11 +295,7 @@ function App() {
                         for (const file of trip.gpxFiles) {
                             const content = await db.getGpx(file.id);
                             if (content) {
-                                await setDoc(doc(firestoreDb, 'gpx', file.id), {
-                                    id: file.id,
-                                    content,
-                                    updatedAt: new Date().toISOString()
-                                });
+                                await db.saveGpx({ id: file.id, content });
                             }
                         }
                     }

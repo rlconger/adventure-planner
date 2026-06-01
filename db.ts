@@ -94,11 +94,40 @@ export const saveGpx = async (file: { id: string, content: string }): Promise<vo
     if (auth.currentUser) {
         const path = `gpx/${file.id}`;
         try {
-            await setDoc(doc(firestoreDb, 'gpx', file.id), {
-                id: file.id,
-                content: file.content,
-                updatedAt: new Date().toISOString()
-            });
+            const CHUNK_SIZE = 800000;
+            if (file.content.length <= CHUNK_SIZE) {
+                // Regular write
+                await setDoc(doc(firestoreDb, 'gpx', file.id), {
+                    id: file.id,
+                    content: file.content,
+                    updatedAt: new Date().toISOString()
+                });
+            } else {
+                // Chunked write
+                const content = file.content;
+                const numChunks = Math.ceil(content.length / CHUNK_SIZE);
+                
+                // Write all chunks
+                for (let i = 0; i < numChunks; i++) {
+                    const chunkId = `${file.id}_chunk_${i}`;
+                    const chunkContent = content.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                    const chunkPath = `gpx/${chunkId}`;
+                    await setDoc(doc(firestoreDb, 'gpx', chunkId), {
+                        id: chunkId,
+                        content: chunkContent,
+                        updatedAt: new Date().toISOString()
+                    });
+                }
+                
+                // Write manifest document
+                await setDoc(doc(firestoreDb, 'gpx', file.id), {
+                    id: file.id,
+                    content: "", // empty content
+                    isChunked: true,
+                    chunkCount: numChunks,
+                    updatedAt: new Date().toISOString()
+                });
+            }
         } catch (error) {
             handleFirestoreError(error, OperationType.WRITE, path);
         }
@@ -114,8 +143,27 @@ export const getGpx = async (id: string): Promise<string | undefined> => {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
             const data = docSnap.data();
-            // Cache locally for faster access next time
-            if (data.content) {
+            if (data.isChunked === true && typeof data.chunkCount === 'number') {
+                // Fetch and assemble chunks
+                const chunkCount = data.chunkCount;
+                const chunkPromises = [];
+                for (let i = 0; i < chunkCount; i++) {
+                    const chunkId = `${id}_chunk_${i}`;
+                    chunkPromises.push(getDoc(doc(firestoreDb, 'gpx', chunkId)));
+                }
+                const chunkSnaps = await Promise.all(chunkPromises);
+                let fullContent = '';
+                for (const snap of chunkSnaps) {
+                    if (snap.exists()) {
+                        fullContent += snap.data().content || '';
+                    }
+                }
+                if (fullContent) {
+                    await saveGpxLocal({ id, content: fullContent });
+                    return fullContent;
+                }
+            } else if (data.content) {
+                // Cache locally for faster access next time
                 await saveGpxLocal({ id, content: data.content });
                 return data.content;
             }
@@ -135,7 +183,22 @@ export const deleteGpx = async (id: string): Promise<void> => {
     if (auth.currentUser) {
         const path = `gpx/${id}`;
         try {
-            await deleteDoc(doc(firestoreDb, 'gpx', id));
+            // First, get the document to see if it's chunked, so we can clean up any chunks too
+            const docRef = doc(firestoreDb, 'gpx', id);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.isChunked === true && typeof data.chunkCount === 'number') {
+                    // Delete all chunks
+                    const chunkCount = data.chunkCount;
+                    for (let i = 0; i < chunkCount; i++) {
+                        const chunkId = `${id}_chunk_${i}`;
+                        await deleteDoc(doc(firestoreDb, 'gpx', chunkId));
+                    }
+                }
+            }
+            // Finally delete the main document
+            await deleteDoc(docRef);
         } catch (error) {
             handleFirestoreError(error, OperationType.DELETE, path);
         }
