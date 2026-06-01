@@ -232,20 +232,37 @@ function App() {
 
     // Firestore real-time trips synchronization
     useEffect(() => {
+        if (!user) {
+            // When not logged in, keep local storage trips as the offline source of truth
+            try {
+                const savedTrips = localStorage.getItem('adventure-planner-trips');
+                if (savedTrips) {
+                    const parsedTrips = JSON.parse(savedTrips);
+                    if (Array.isArray(parsedTrips)) {
+                        setTrips(parsedTrips);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to restore offline trips from local storage:", err);
+            }
+            return;
+        }
+
         const unsubscribe = onSnapshot(collection(firestoreDb, 'trips'), (snapshot) => {
             const cloudTrips: Trip[] = [];
             snapshot.forEach((docSnap) => {
-                const data = docSnap.data();
-                cloudTrips.push(data as Trip);
+                const data = docSnap.data() as Trip;
+                // Only sync trips owned by current user OR associated with active voting polls in the group
+                if (data.ownerId === user.uid || data.pollId) {
+                    cloudTrips.push(data);
+                }
             });
-            if (cloudTrips.length > 0) {
-                setTrips(cloudTrips);
-            }
+            setTrips(cloudTrips);
         }, (error) => {
             console.error("Trips real-time sync subscription error:", error);
         });
         return () => unsubscribe();
-    }, []);
+    }, [user]);
 
     // Firestore real-time votes/polls synchronization
     useEffect(() => {
@@ -985,7 +1002,9 @@ function App() {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        if (file.type !== "application/json") {
+        // Relaxed JSON check to support systems missing formal JSON MIME-type mapping
+        const isJson = file.type === "application/json" || file.name.toLowerCase().endsWith('.json');
+        if (!isJson) {
             alert("Please select a valid JSON file.");
             return;
         }
@@ -1024,7 +1043,7 @@ function App() {
                     });
                     return uniqueTrips;
                 });
-                alert(`${validatedTrips.length} trip(s) imported successfully!`);
+                alert(`${validatedTrips.length} trip(s) imported successfully! Look under the "Upcoming", "Planning", or "Completed" tabs to see them.`);
                 setView('list');
                 setActiveTripId(null);
     
