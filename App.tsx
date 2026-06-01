@@ -16,8 +16,28 @@ import * as db from './db';
 type Votes = { [pollId: string]: { [voterName: string]: string } }; // pollId -> voterName -> votedTripId
 
 // Helper function to remove undefined properties for Firestore compatibility
-const cleanForFirestore = <T,>(obj: T): T => {
-    return JSON.parse(JSON.stringify(obj));
+const cleanForFirestore = (obj: any): any => {
+    if (obj === null || obj === undefined) {
+        return null;
+    }
+    if (Array.isArray(obj)) {
+        return obj.map(item => cleanForFirestore(item)).filter(item => item !== undefined);
+    }
+    if (typeof obj === 'object') {
+        const cleaned: any = {};
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                const val = obj[key];
+                if (val !== undefined && val !== null) {
+                    cleaned[key] = cleanForFirestore(val);
+                } else if (val === null) {
+                    cleaned[key] = null;
+                }
+            }
+        }
+        return cleaned;
+    }
+    return obj;
 };
 
 // Helper function to ensure imported data is valid and has unique IDs
@@ -41,8 +61,16 @@ const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
         
         newTrip.status = Object.values(TripStatus).includes(trip.status) ? trip.status : TripStatus.Planning;
         newTrip.routeType = trip.routeType && Object.values(RouteType).includes(trip.routeType) ? trip.routeType : RouteType.Paved;
-        newTrip.pollId = trip.pollId || undefined;
-        newTrip.imageUrl = trip.imageUrl || undefined;
+        if (trip.pollId) {
+            newTrip.pollId = trip.pollId;
+        } else {
+            delete newTrip.pollId;
+        }
+        if (trip.imageUrl) {
+            newTrip.imageUrl = trip.imageUrl;
+        } else {
+            delete newTrip.imageUrl;
+        }
 
         if (Array.isArray(trip.roster)) {
             newTrip.roster = trip.roster.map((attendee: any) => {
