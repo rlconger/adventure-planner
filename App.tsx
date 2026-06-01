@@ -42,12 +42,30 @@ const cleanForFirestore = (obj: any): any => {
 
 // Helper function to ensure imported data is valid and has unique IDs
 const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
-    if (!Array.isArray(data)) {
-        throw new Error("Invalid data format: Expected an array of trips.");
+    let tripsArray: any[] = [];
+    
+    if (Array.isArray(data)) {
+        tripsArray = data;
+    } else if (data && typeof data === 'object') {
+        if (Array.isArray(data.trips)) {
+            tripsArray = data.trips;
+        } else if (Array.isArray(data.data)) {
+            tripsArray = data.data;
+        } else {
+            // Traverse values to find the first array
+            const foundArray = Object.values(data).find(val => Array.isArray(val));
+            if (foundArray && Array.isArray(foundArray)) {
+                tripsArray = foundArray;
+            }
+        }
+    }
+
+    if (tripsArray.length === 0) {
+        throw new Error("Invalid data format: Expected an array of trips or a JSON object containing a list of trips.");
     }
 
     const newTrips: Trip[] = [];
-    for (const trip of data) {
+    for (const trip of tripsArray) {
          if (typeof trip !== 'object' || trip === null || !trip.title) {
             console.warn("Skipping invalid trip object (missing title):", trip);
             continue;
@@ -58,6 +76,11 @@ const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
         newTrip.ownerId = auth.currentUser?.uid || 'anonymous';
         newTrip.createdAt = newTrip.createdAt || new Date().toISOString();
         newTrip.updatedAt = new Date().toISOString();
+        
+        // Trim titles to conform to secure 100-character Firestore restriction
+        if (typeof newTrip.title === 'string' && newTrip.title.length > 100) {
+            newTrip.title = newTrip.title.substring(0, 100);
+        }
         
         newTrip.status = Object.values(TripStatus).includes(trip.status) ? trip.status : TripStatus.Planning;
         newTrip.routeType = trip.routeType && Object.values(RouteType).includes(trip.routeType) ? trip.routeType : RouteType.Paved;
@@ -220,12 +243,16 @@ function App() {
 
     // Firebase Auth Observer
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                try {
+                    await migrateLocalDataToCloud(currentUser);
+                } catch (err) {
+                    console.error("Error migrating local data during login:", err);
+                }
+            }
             setUser(currentUser);
             setLoadingAuth(false);
-            if (currentUser) {
-                migrateLocalDataToCloud(currentUser);
-            }
         });
         return () => unsubscribe();
     }, []);
@@ -1246,7 +1273,7 @@ function App() {
                 ref={fileInputRef}
                 onChange={handleFileImport}
                 className="hidden"
-                accept="application/json"
+                accept=".json,application/json"
             />
         </div>
     );
