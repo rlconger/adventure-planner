@@ -15,6 +15,11 @@ import * as db from './db';
 
 type Votes = { [pollId: string]: { [voterName: string]: string } }; // pollId -> voterName -> votedTripId
 
+// Helper function to remove undefined properties for Firestore compatibility
+const cleanForFirestore = <T,>(obj: T): T => {
+    return JSON.parse(JSON.stringify(obj));
+};
+
 // Helper function to ensure imported data is valid and has unique IDs
 const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
     if (!Array.isArray(data)) {
@@ -264,10 +269,10 @@ function App() {
         if (auth.currentUser && updatedTrip.ownerId === auth.currentUser.uid) {
             const path = `trips/${updatedTrip.id}`;
             try {
-                await setDoc(doc(firestoreDb, 'trips', updatedTrip.id), {
+                await setDoc(doc(firestoreDb, 'trips', updatedTrip.id), cleanForFirestore({
                     ...updatedTrip,
                     updatedAt: new Date().toISOString()
-                });
+                }));
             } catch (error) {
                 handleFirestoreError(error, OperationType.WRITE, path);
             }
@@ -292,7 +297,7 @@ function App() {
                         createdAt: trip.createdAt || new Date().toISOString(),
                         updatedAt: new Date().toISOString()
                     };
-                    await setDoc(tripRef, migratedTrip);
+                    await setDoc(tripRef, cleanForFirestore(migratedTrip));
                     
                     if (trip.gpxFiles && trip.gpxFiles.length > 0) {
                         for (const file of trip.gpxFiles) {
@@ -314,10 +319,10 @@ function App() {
                         const attRef = doc(firestoreDb, 'globalAttendees', attendee.id);
                         const attSnap = await getDoc(attRef);
                         if (!attSnap.exists()) {
-                            await setDoc(attRef, {
+                            await setDoc(attRef, cleanForFirestore({
                                 ...attendee,
                                 creatorId: currentUser.uid
-                            });
+                            }));
                         }
                     }
                 }
@@ -755,7 +760,7 @@ function App() {
         // Run async database sync in background to match sync signature
         if (auth.currentUser) {
             const path = `globalAttendees/${targetId}`;
-            setDoc(doc(firestoreDb, 'globalAttendees', targetId), savedAttendee)
+            setDoc(doc(firestoreDb, 'globalAttendees', targetId), cleanForFirestore(savedAttendee))
                 .catch(error => {
                     console.error("Global attendee Firestore sync failure:", error);
                 });
@@ -870,11 +875,11 @@ function App() {
 
         const path = `votes/${pollId}`;
         try {
-            await setDoc(doc(firestoreDb, 'votes', pollId), {
+            await setDoc(doc(firestoreDb, 'votes', pollId), cleanForFirestore({
                 pollId,
                 ballots: newPollVotes,
                 updatedAt: new Date().toISOString()
-            });
+            }));
         } catch (error) {
             handleFirestoreError(error, OperationType.WRITE, path);
         }
@@ -974,11 +979,11 @@ function App() {
                 if (auth.currentUser) {
                     for (const trip of validatedTrips) {
                         const tripRef = doc(firestoreDb, 'trips', trip.id);
-                        await setDoc(tripRef, {
+                        await setDoc(tripRef, cleanForFirestore({
                             ...trip,
                             ownerId: auth.currentUser.uid,
                             updatedAt: new Date().toISOString()
-                        });
+                        }));
                     }
                 }
                 
