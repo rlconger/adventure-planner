@@ -2,6 +2,7 @@ import React, { useState, useEffect, useId, useMemo, useRef } from 'react';
 import { Trip, RouteType, Theme, THEMES, GpxFile } from '../types';
 import Modal from './Modal';
 import { UploadIcon, XMarkIcon } from './icons';
+import { generateUUID } from '../db';
 
 type GpxFileWithContent = GpxFile & { content?: string };
 
@@ -72,7 +73,7 @@ const TripForm: React.FC<TripFormProps> = ({ onClose, onSave, tripToEdit, allTri
                 const content = e.target?.result as string;
                 if (content) {
                     const newGpxFile: GpxFileWithContent = {
-                        id: crypto.randomUUID(),
+                        id: generateUUID(),
                         name: file.name,
                         content,
                     };

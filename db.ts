@@ -5,84 +5,143 @@ const DB_NAME = 'AdventurePlannerDB';
 const STORE_NAME = 'gpxFiles';
 const DB_VERSION = 1;
 
-let localIndexedDb: IDBDatabase;
+let localIndexedDb: IDBDatabase | null = null;
+let isIndexedDbBlocked = false;
+
+// Safe UUID Generator fallback
+export const generateUUID = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        try {
+            return crypto.randomUUID();
+        } catch (e) {
+            // Fallback to manual if randomUUID fails or throws
+        }
+    }
+    // Standard RFC4122 compliant UUID v4 generator
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+};
 
 // Function to initialize the local IndexedDB cache
-export const initDB = (): Promise<IDBDatabase> => {
-    return new Promise((resolve, reject) => {
+export const initDB = (): Promise<IDBDatabase | null> => {
+    return new Promise((resolve) => {
         if (localIndexedDb) {
             return resolve(localIndexedDb);
         }
+        if (isIndexedDbBlocked) {
+            return resolve(null);
+        }
 
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = (event) => {
-            console.error("Local database error: ", (event.target as IDBRequest).error);
-            reject("Local database error");
-        };
-
-        request.onsuccess = (event) => {
-            localIndexedDb = (event.target as IDBRequest).result;
-            resolve(localIndexedDb);
-        };
-
-        request.onupgradeneeded = (event) => {
-            const tempDb = (event.target as IDBRequest).result;
-            if (!tempDb.objectStoreNames.contains(STORE_NAME)) {
-                tempDb.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        try {
+            if (typeof indexedDB === 'undefined') {
+                console.warn("IndexedDB is not supported in this environment.");
+                isIndexedDbBlocked = true;
+                return resolve(null);
             }
-        };
+
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+            request.onerror = (event) => {
+                console.warn("Local database error or block: ", (event.target as IDBRequest).error);
+                isIndexedDbBlocked = true;
+                resolve(null);
+            };
+
+            request.onsuccess = (event) => {
+                localIndexedDb = (event.target as IDBRequest).result;
+                resolve(localIndexedDb);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const tempDb = (event.target as IDBRequest).result;
+                if (!tempDb.objectStoreNames.contains(STORE_NAME)) {
+                    tempDb.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                }
+            };
+        } catch (e) {
+            console.warn("IndexedDB is blocked or threw a synchronous error:", e);
+            isIndexedDbBlocked = true;
+            resolve(null);
+        }
     });
 };
 
 // Function to save a GPX file locally in IndexedDB cache
 const saveGpxLocal = async (file: { id: string, content: string }): Promise<void> => {
-    const ldb = await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = ldb.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.put(file);
+    try {
+        const ldb = await initDB();
+        if (!ldb) {
+            console.warn("IndexedDB is not available; caching bypassed.");
+            return;
+        }
+        return new Promise((resolve) => {
+            const transaction = ldb.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.put(file);
 
-        request.onsuccess = () => resolve();
-        request.onerror = (event) => {
-            console.error('Error saving local GPX:', (event.target as IDBRequest).error);
-            reject('Error saving local GPX');
-        };
-    });
+            request.onsuccess = () => resolve();
+            request.onerror = (event) => {
+                console.warn('Error saving local GPX:', (event.target as IDBRequest).error);
+                resolve();
+            };
+        });
+    } catch (err) {
+        console.warn("IndexedDB transaction failed during save:", err);
+    }
 };
 
 // Function to get a GPX file from local IndexedDB cache
 const getGpxLocal = async (id: string): Promise<string | undefined> => {
-    const ldb = await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = ldb.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.get(id);
+    try {
+        const ldb = await initDB();
+        if (!ldb) {
+            console.warn("IndexedDB index is not available; local cache bypassed.");
+            return undefined;
+        }
+        return new Promise((resolve) => {
+            const transaction = ldb.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(id);
 
-        request.onsuccess = () => {
-            resolve(request.result?.content);
-        };
-        request.onerror = (event) => {
-            console.error('Error getting local GPX:', (event.target as IDBRequest).error);
-            reject('Error getting local GPX');
-        };
-    });
+            request.onsuccess = () => {
+                resolve(request.result?.content);
+            };
+            request.onerror = (event) => {
+                console.warn('Error getting local GPX:', (event.target as IDBRequest).error);
+                resolve(undefined);
+            };
+        });
+    } catch (err) {
+        console.warn("IndexedDB transaction failed during load:", err);
+        return undefined;
+    }
 };
 
 // Function to delete a GPX file local cache
 const deleteGpxLocal = async (id: string): Promise<void> => {
-    const ldb = await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = ldb.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.delete(id);
+    try {
+        const ldb = await initDB();
+        if (!ldb) {
+            console.warn("IndexedDB index is not available; delete cache bypassed.");
+            return;
+        }
+        return new Promise((resolve) => {
+            const transaction = ldb.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.delete(id);
 
-        request.onsuccess = () => resolve();
-        request.onerror = (event) => {
-            console.error('Error deleting local GPX:', (event.target as IDBRequest).error);
-            reject('Error deleting local GPX');
-        };
-    });
+            request.onsuccess = () => resolve();
+            request.onerror = (event) => {
+                console.warn('Error deleting local GPX:', (event.target as IDBRequest).error);
+                resolve();
+            };
+        });
+    } catch (err) {
+        console.warn("IndexedDB transaction failed during delete:", err);
+    }
 };
 
 // Function to save a GPX file (Both Cloud Firestore & Local Cache)

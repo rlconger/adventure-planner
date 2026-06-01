@@ -54,7 +54,7 @@ const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
         }
         
         const newTrip: Trip = JSON.parse(JSON.stringify(trip));
-        newTrip.id = crypto.randomUUID();
+        newTrip.id = db.generateUUID();
         newTrip.ownerId = auth.currentUser?.uid || 'anonymous';
         newTrip.createdAt = newTrip.createdAt || new Date().toISOString();
         newTrip.updatedAt = new Date().toISOString();
@@ -76,7 +76,7 @@ const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
             newTrip.roster = trip.roster.map((attendee: any) => {
                 if (typeof attendee === 'object' && attendee !== null && typeof attendee.name === 'string') {
                     return {
-                        id: crypto.randomUUID(),
+                        id: db.generateUUID(),
                         name: attendee.name,
                         email: attendee.email || '',
                         phone: attendee.phone || '',
@@ -94,7 +94,7 @@ const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
             for (const gpx of trip.gpxFiles) {
                 if (gpx && typeof gpx.name === 'string' && typeof gpx.content === 'string') {
                     const newGpxFile = {
-                        id: crypto.randomUUID(),
+                        id: db.generateUUID(),
                         name: gpx.name,
                     };
                     await db.saveGpx({ id: newGpxFile.id, content: gpx.content });
@@ -109,17 +109,17 @@ const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
         }
 
         newTrip.legs.forEach((leg: any) => {
-            leg.id = crypto.randomUUID();
+            leg.id = db.generateUUID();
             leg.accommodationType = leg.accommodationType && Object.values(AccommodationType).includes(leg.accommodationType) ? leg.accommodationType : AccommodationType.Other;
             leg.notes = leg.notes || '';
 
             if (leg.sites && Array.isArray(leg.sites)) {
-                leg.sites.forEach((site: any) => site.id = crypto.randomUUID());
+                leg.sites.forEach((site: any) => site.id = db.generateUUID());
             } else {
                 leg.sites = [];
             }
             if (leg.rooms && Array.isArray(leg.rooms)) {
-                leg.rooms.forEach((room: any) => room.id = crypto.randomUUID());
+                leg.rooms.forEach((room: any) => room.id = db.generateUUID());
             } else {
                 leg.rooms = [];
             }
@@ -536,7 +536,7 @@ function App() {
                 };
                 await syncTripUpdate(updatedTrip);
             } else {
-                const newId = crypto.randomUUID();
+                const newId = db.generateUUID();
                 const newTrip: Trip = {
                     id: newId,
                     ...finalTripData,
@@ -630,7 +630,7 @@ function App() {
         try {
             const newTrip: Trip = JSON.parse(JSON.stringify(tripToCopy));
 
-            newTrip.id = crypto.randomUUID();
+            newTrip.id = db.generateUUID();
             newTrip.title = `${newTrip.title} (Copy)`;
             newTrip.status = TripStatus.Planning;
             newTrip.pollId = undefined;
@@ -644,7 +644,7 @@ function App() {
                 for (const file of newTrip.gpxFiles) {
                     const content = await db.getGpx(file.id);
                     if (typeof content === 'string') {
-                        const newFile = { ...file, id: crypto.randomUUID() };
+                        const newFile = { ...file, id: db.generateUUID() };
                         await db.saveGpx({ id: newFile.id, content });
                         newGpxFiles.push(newFile);
                     }
@@ -653,13 +653,13 @@ function App() {
             }
 
             newTrip.legs.forEach(leg => {
-                leg.id = crypto.randomUUID();
-                if (leg.sites) leg.sites.forEach(site => site.id = crypto.randomUUID());
-                if (leg.rooms) leg.rooms.forEach(room => room.id = crypto.randomUUID());
+                leg.id = db.generateUUID();
+                if (leg.sites) leg.sites.forEach(site => site.id = db.generateUUID());
+                if (leg.rooms) leg.rooms.forEach(room => room.id = db.generateUUID());
             });
 
             if (newTrip.roster) {
-                newTrip.roster.forEach(attendee => attendee.id = crypto.randomUUID());
+                newTrip.roster.forEach(attendee => attendee.id = db.generateUUID());
             }
             
             await syncTripUpdate(newTrip);
@@ -726,7 +726,7 @@ function App() {
             }
         } else {
             // Logic for adding a new leg
-            const newLeg = { ...legData, id: crypto.randomUUID() };
+            const newLeg = { ...legData, id: db.generateUUID() };
             updatedLegs = [...trip.legs];
             const insertionPoint = insertionIndex ?? trip.legs.length;
             
@@ -786,7 +786,7 @@ function App() {
     };
     
     const handleSaveGlobalAttendee = (attendeeData: Omit<Attendee, 'id'>, idToUpdate?: string): Attendee => {
-        const targetId = idToUpdate || crypto.randomUUID();
+        const targetId = idToUpdate || db.generateUUID();
         const savedAttendee: Attendee = { 
             ...attendeeData, 
             id: targetId, 

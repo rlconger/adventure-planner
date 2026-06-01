@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useId } from 'react';
 import { Leg, Trip, AccommodationType, Reservation, Theme, THEMES } from '../types';
 import Modal from './Modal';
+import { generateUUID } from '../db';
 
 interface LegFormProps {
     onClose: () => void;
@@ -90,7 +91,7 @@ const LegForm: React.FC<LegFormProps> = ({ onClose, onSave, legToEdit, trip, the
         const updater = type === 'sites' ? setSites : setRooms;
         updater(prev => {
             const newReservations = Array.from({ length: count }, (_, i) => {
-                return prev[i] || { id: crypto.randomUUID(), number: '' };
+                return prev[i] || { id: generateUUID(), number: '' };
             });
             return newReservations;
         });
