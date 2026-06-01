@@ -30,6 +30,9 @@ const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
         
         const newTrip: Trip = JSON.parse(JSON.stringify(trip));
         newTrip.id = crypto.randomUUID();
+        newTrip.ownerId = auth.currentUser?.uid || 'anonymous';
+        newTrip.createdAt = newTrip.createdAt || new Date().toISOString();
+        newTrip.updatedAt = new Date().toISOString();
         
         newTrip.status = Object.values(TripStatus).includes(trip.status) ? trip.status : TripStatus.Planning;
         newTrip.routeType = trip.routeType && Object.values(RouteType).includes(trip.routeType) ? trip.routeType : RouteType.Paved;
@@ -968,7 +971,26 @@ function App() {
                     return;
                 }
     
-                setTrips(prevTrips => [...prevTrips, ...validatedTrips]);
+                if (auth.currentUser) {
+                    for (const trip of validatedTrips) {
+                        const tripRef = doc(firestoreDb, 'trips', trip.id);
+                        await setDoc(tripRef, {
+                            ...trip,
+                            ownerId: auth.currentUser.uid,
+                            updatedAt: new Date().toISOString()
+                        });
+                    }
+                }
+                
+                setTrips(prevTrips => {
+                    const uniqueTrips = [...prevTrips];
+                    validatedTrips.forEach(vt => {
+                        if (!uniqueTrips.some(t => t.id === vt.id)) {
+                            uniqueTrips.push(vt);
+                        }
+                    });
+                    return uniqueTrips;
+                });
                 alert(`${validatedTrips.length} trip(s) imported successfully!`);
                 setView('list');
                 setActiveTripId(null);
