@@ -1,0 +1,146 @@
+{
+  "entities": {
+    "gpxFile": {
+      "title": "gpxFile",
+      "description": "GPX raw content storage to access it across devices",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "content"
+      ]
+    },
+    "trip": {
+      "title": "trip",
+      "description": "A motorcycle or dual-sport adventure road trip",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "startDate": {
+          "type": "string"
+        },
+        "endDate": {
+          "type": "string"
+        },
+        "routeType": {
+          "type": "string"
+        },
+        "imageUrl": {
+          "type": "string"
+        },
+        "legs": {
+          "type": "array"
+        },
+        "status": {
+          "type": "string"
+        },
+        "pollId": {
+          "type": "string"
+        },
+        "gpxFiles": {
+          "type": "array"
+        },
+        "roster": {
+          "type": "array"
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "status",
+        "routeType"
+      ]
+    },
+    "votes": {
+      "title": "votes",
+      "description": "Voting poll details showing which voter voted for what trip under a poll",
+      "type": "object",
+      "properties": {
+        "pollId": {
+          "type": "string"
+        },
+        "ballots": {
+          "type": "object"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "pollId"
+      ]
+    },
+    "attendee": {
+      "title": "attendee",
+      "description": "A global address book contact",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "creatorId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    }
+  },
+  "firestore": {
+    "/gpx/{gpxId}": {
+      "schema": "gpxFile",
+      "description": "Store GPX track content in the cloud"
+    },
+    "/trips/{tripId}": {
+      "schema": "trip",
+      "description": "Adventure trips list with nested structures"
+    },
+    "/votes/{pollId}": {
+      "schema": "votes",
+      "description": "Poll voting results in real-time"
+    },
+    "/globalAttendees/{attendeeId}": {
+      "schema": "attendee",
+      "description": "Universal address book of fellow riders"
+    }
+  }
+}

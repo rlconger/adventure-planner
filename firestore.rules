@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default global security net: deny all by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // GPX files collection
+    match /gpx/{gpxId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() 
+        && isValidId(gpxId)
+        && request.resource.data.id == gpxId
+        && request.resource.data.content is string
+        && request.resource.data.content.size() <= 1048576; // Max 1MB block size
+      allow delete: if isSignedIn();
+    }
+
+    // Trips collection
+    match /trips/{tripId} {
+      allow read: if true;
+      allow create: if isSignedIn() 
+        && isValidId(tripId)
+        && request.resource.data.id == tripId
+        && request.resource.data.title is string
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isSignedIn() 
+        && (resource.data.ownerId == request.auth.uid)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.id == resource.data.id;
+      allow delete: if isSignedIn() 
+        && (resource.data.ownerId == request.auth.uid);
+    }
+
+    // Voting polls collection
+    match /votes/{pollId} {
+      allow read: if true;
+      allow create, update: if isValidId(pollId)
+        && request.resource.data.pollId == pollId;
+      allow delete: if isSignedIn();
+    }
+
+    // Global contact book (PII isolation)
+    match /globalAttendees/{attendeeId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(attendeeId)
+        && request.resource.data.id == attendeeId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 100;
+      allow delete: if isSignedIn();
+    }
+  }
+}
