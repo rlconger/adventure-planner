@@ -72,7 +72,7 @@ const validateAndPrepareTrips = async (data: any): Promise<any[]> => {
         }
         
         const newTrip: any = JSON.parse(JSON.stringify(trip));
-        newTrip.id = db.generateUUID();
+        newTrip.id = trip.id && typeof trip.id === 'string' && trip.id.trim() !== '' ? trip.id : db.generateUUID();
         newTrip.ownerId = auth.currentUser?.uid || 'anonymous';
         newTrip.createdAt = newTrip.createdAt || new Date().toISOString();
         newTrip.updatedAt = new Date().toISOString();
@@ -99,7 +99,7 @@ const validateAndPrepareTrips = async (data: any): Promise<any[]> => {
             newTrip.roster = trip.roster.map((attendee: any) => {
                 if (typeof attendee === 'object' && attendee !== null && typeof attendee.name === 'string') {
                     return {
-                        id: db.generateUUID(),
+                        id: attendee.id && typeof attendee.id === 'string' && attendee.id.trim() !== '' ? attendee.id : db.generateUUID(),
                         name: attendee.name,
                         email: attendee.email || '',
                         phone: attendee.phone || '',
@@ -117,7 +117,7 @@ const validateAndPrepareTrips = async (data: any): Promise<any[]> => {
             for (const gpx of trip.gpxFiles) {
                 if (gpx && typeof gpx.name === 'string' && typeof gpx.content === 'string') {
                     gpxMetadata.push({
-                        id: db.generateUUID(),
+                        id: gpx.id && typeof gpx.id === 'string' && gpx.id.trim() !== '' ? gpx.id : db.generateUUID(),
                         name: gpx.name,
                         content: gpx.content
                     });
@@ -131,17 +131,21 @@ const validateAndPrepareTrips = async (data: any): Promise<any[]> => {
         }
 
         newTrip.legs.forEach((leg: any) => {
-            leg.id = db.generateUUID();
+            leg.id = leg.id && typeof leg.id === 'string' && leg.id.trim() !== '' ? leg.id : db.generateUUID();
             leg.accommodationType = leg.accommodationType && Object.values(AccommodationType).includes(leg.accommodationType) ? leg.accommodationType : AccommodationType.Other;
             leg.notes = leg.notes || '';
 
             if (leg.sites && Array.isArray(leg.sites)) {
-                leg.sites.forEach((site: any) => site.id = db.generateUUID());
+                leg.sites.forEach((site: any) => {
+                    site.id = site.id && typeof site.id === 'string' && site.id.trim() !== '' ? site.id : db.generateUUID();
+                });
             } else {
                 leg.sites = [];
             }
             if (leg.rooms && Array.isArray(leg.rooms)) {
-                leg.rooms.forEach((room: any) => room.id = db.generateUUID());
+                leg.rooms.forEach((room: any) => {
+                    room.id = room.id && typeof room.id === 'string' && room.id.trim() !== '' ? room.id : db.generateUUID();
+                });
             } else {
                 leg.rooms = [];
             }
