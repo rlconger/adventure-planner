@@ -153,9 +153,20 @@ const validateAndPrepareTrips = async (data: any): Promise<Trip[]> => {
 };
 
 
+interface ImportProgress {
+    status: 'idle' | 'reading' | 'validating' | 'saving' | 'success' | 'error';
+    totalTrips?: number;
+    currentTrip?: number;
+    currentTripTitle?: string;
+    message?: string;
+    errorMessage?: string;
+}
+
+
 function App() {
     const [user, setUser] = useState<User | null>(null);
     const [loadingAuth, setLoadingAuth] = useState(true);
+    const [importProgress, setImportProgress] = useState<ImportProgress>({ status: 'idle' });
 
     const [trips, setTrips] = useState<Trip[]>(() => {
         try {
@@ -1032,9 +1043,17 @@ function App() {
         // Relaxed JSON check to support systems missing formal JSON MIME-type mapping
         const isJson = file.type === "application/json" || file.name.toLowerCase().endsWith('.json');
         if (!isJson) {
-            alert("Please select a valid JSON file.");
+            setImportProgress({
+                status: 'error',
+                errorMessage: 'Standard file verification failed. Please select a valid JSON file (.json).'
+            });
             return;
         }
+
+        setImportProgress({
+            status: 'reading',
+            message: `Reading "${file.name}"...`
+        });
     
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -1042,16 +1061,41 @@ function App() {
                 const text = e.target?.result;
                 if (typeof text !== 'string') throw new Error("Failed to read file content.");
                 
+                setImportProgress({
+                    status: 'validating',
+                    message: "Parsing JSON file content and validating structure..."
+                });
+                
                 const importedData = JSON.parse(text);
                 const validatedTrips = await validateAndPrepareTrips(importedData);
     
                 if (validatedTrips.length === 0) {
-                    alert("No valid trips were found in the selected file or the file was empty.");
+                    setImportProgress({
+                        status: 'error',
+                        errorMessage: "No valid trips were found in the selected file or the file was empty."
+                    });
                     return;
                 }
     
+                setImportProgress({
+                    status: 'saving',
+                    totalTrips: validatedTrips.length,
+                    currentTrip: 0,
+                    message: `Preparing database records for ${validatedTrips.length} trip(s)...`
+                });
+
                 if (auth.currentUser) {
+                    let count = 0;
                     for (const trip of validatedTrips) {
+                        count++;
+                        setImportProgress({
+                            status: 'saving',
+                            totalTrips: validatedTrips.length,
+                            currentTrip: count,
+                            currentTripTitle: trip.title,
+                            message: `Saving "${trip.title}" (${count} of ${validatedTrips.length}) to Cloud database...`
+                        });
+
                         const tripRef = doc(firestoreDb, 'trips', trip.id);
                         await setDoc(tripRef, cleanForFirestore({
                             ...trip,
@@ -1064,23 +1108,43 @@ function App() {
                 setTrips(prevTrips => {
                     const uniqueTrips = [...prevTrips];
                     validatedTrips.forEach(vt => {
-                        if (!uniqueTrips.some(t => t.id === vt.id)) {
+                        const index = uniqueTrips.findIndex(t => t.id === vt.id);
+                        if (index >= 0) {
+                            uniqueTrips[index] = vt;
+                        } else {
                             uniqueTrips.push(vt);
                         }
                     });
                     return uniqueTrips;
                 });
-                alert(`${validatedTrips.length} trip(s) imported successfully! Look under the "Upcoming", "Planning", or "Completed" tabs to see them.`);
+
+                setImportProgress({
+                    status: 'success',
+                    totalTrips: validatedTrips.length,
+                    message: `Successfully imported ${validatedTrips.length} trip(s)!`
+                });
+
                 setView('list');
                 setActiveTripId(null);
     
             } catch (error) {
                 console.error("Failed to import trips:", error);
-                alert(`Error importing file: ${error instanceof Error ? error.message : "Unknown error"}`);
+                setImportProgress({
+                    status: 'error',
+                    errorMessage: error instanceof Error ? error.message : "Parsing or DB write failed during import."
+                });
             } finally {
                 if (event.target) event.target.value = "";
             }
         };
+        
+        reader.onerror = () => {
+            setImportProgress({
+                status: 'error',
+                errorMessage: "Filed to read the selected file from disk."
+            });
+        };
+
         reader.readAsText(file);
     };
 
@@ -1266,6 +1330,111 @@ function App() {
                     onClose={() => setTripToPrint(null)}
                     theme={theme}
                 />
+            )}
+
+            {importProgress.status !== 'idle' && (
+                <Modal
+                    onClose={() => setImportProgress({ status: 'idle' })}
+                    title={
+                        importProgress.status === 'reading' ? 'Reading File...' :
+                        importProgress.status === 'validating' ? 'Validating File...' :
+                        importProgress.status === 'saving' ? 'Importing Trips...' :
+                        importProgress.status === 'success' ? 'Import Complete!' :
+                        'Import Error'
+                    }
+                    footer={
+                        <div className="flex justify-end">
+                            {(importProgress.status === 'success' || importProgress.status === 'error') ? (
+                                <button
+                                    onClick={() => setImportProgress({ status: 'idle' })}
+                                    className={`px-6 py-2 rounded-md text-sm font-medium text-white ${THEMES[theme].buttonClass} ${THEMES[theme].buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${THEMES[theme].ringClass}`}
+                                >
+                                    Dismiss
+                                </button>
+                            ) : (
+                                <div className="flex items-center text-sm text-gray-500 italic">
+                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Processing import, please wait...
+                                </div>
+                            )}
+                        </div>
+                    }
+                >
+                    <div className="space-y-6 py-2">
+                        {/* Status Icon & Message */}
+                        <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0">
+                                {importProgress.status === 'success' ? (
+                                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                ) : importProgress.status === 'error' ? (
+                                    <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </div>
+                                ) : (
+                                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 animate-pulse">
+                                        <svg className="h-6 w-6 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18" />
+                                        </svg>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-lg font-medium text-gray-900 mt-1">
+                                    {importProgress.message || (importProgress.status === 'error' && 'Something went wrong.')}
+                                </p>
+                                {importProgress.status === 'error' && importProgress.errorMessage && (
+                                    <div className="mt-2 bg-red-50 border-l-4 border-red-400 p-3 rounded text-sm text-red-700 font-mono whitespace-pre-wrap">
+                                        {importProgress.errorMessage}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Progress Bar (Only during saving phase) */}
+                        {importProgress.status === 'saving' && importProgress.totalTrips && importProgress.totalTrips > 0 && (
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-sm text-gray-600 font-medium">
+                                    <span>Progress</span>
+                                    <span>
+                                        {importProgress.currentTrip} of {importProgress.totalTrips} Trips
+                                    </span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                    <div 
+                                        className={`h-full rounded-full transition-all duration-300 ${THEMES[theme].buttonClass}`}
+                                        style={{ width: `${((importProgress.currentTrip || 0) / importProgress.totalTrips) * 100}%` }}
+                                    ></div>
+                                </div>
+                                {importProgress.currentTripTitle && (
+                                    <p className="text-xs text-gray-500 italic max-w-full truncate">
+                                        Current: {importProgress.currentTripTitle}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Informative description */}
+                        {importProgress.status === 'success' && (
+                            <p className="text-sm text-gray-600 bg-green-50 border-l-4 border-green-400 p-3 rounded">
+                                Look under the <strong>"Upcoming"</strong>, <strong>"Planning"</strong>, or <strong>"Completed"</strong> tabs in your main view to see your imported adventures. All associated lists, routes, and GPX track points have been synced!
+                            </p>
+                        )}
+                        {importProgress.status === 'saving' && (
+                            <p className="text-xs text-gray-500">
+                                We are writing each trip's planned legs, guest rosters, and custom GPX trail tracks directly to secure cloud database records. Do not close your browser tab or app until this is complete.
+                            </p>
+                        )}
+                    </div>
+                </Modal>
             )}
 
             <input
