@@ -123,13 +123,16 @@ const TripForm: React.FC<TripFormProps> = ({ onClose, onSave, tripToEdit, allTri
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Start Date</label>
+                        <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Start Date (Optional)</label>
                         <input type="date" id="startDate" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputClass} />
                     </div>
                     <div>
-                        <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">End Date</label>
+                        <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">End Date (Optional)</label>
                         <input type="date" id="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} min={startDate} className={inputClass} />
                     </div>
+                </div>
+                <div className="text-xs text-gray-500 bg-gray-50/70 border border-gray-155 p-3 rounded-lg leading-relaxed -mt-3">
+                    💡 <strong>Dates are optional up front!</strong> You can leave these blank. Let your adventure idea take shape first without date constraints. Once you have dates finalized, adding them here will automatically extend to schedule and align your trip legs.
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div>

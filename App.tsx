@@ -351,8 +351,8 @@ function App() {
 
     // Firestore real-time global attendees sync (requires Auth)
     useEffect(() => {
-        if (!activeUser) {
-            // Keep local attendees if signed out
+        if (!activeUser || activeUser.isSimulated || !auth.currentUser) {
+            // Keep local attendees if signed out or using simulated/offline bypass mode
             try {
                 const saved = localStorage.getItem('adventure-planner-global-attendees');
                 const parsed = saved ? JSON.parse(saved) : [];
@@ -379,7 +379,8 @@ function App() {
         // Optimistic state updates on client first
         setTrips(prev => prev.map(t => t.id === updatedTrip.id ? updatedTrip : t));
 
-        if (activeUser && updatedTrip.ownerId === activeUser.uid) {
+        const isEditable = activeUser && (updatedTrip.ownerId === activeUser.uid || !!updatedTrip.allowPublicEdit);
+        if (auth.currentUser && isEditable) {
             const path = `trips/${updatedTrip.id}`;
             try {
                 await setDoc(doc(firestoreDb, 'trips', updatedTrip.id), cleanForFirestore({
@@ -672,11 +673,11 @@ function App() {
                     
                     setTrips(prevTrips => prevTrips.filter(t => t.id !== tripId));
                     
-                    if (activeUser && tripToDelete?.ownerId === activeUser.uid) {
+                    if (auth.currentUser && activeUser && tripToDelete?.ownerId === activeUser.uid) {
                         await deleteDoc(doc(firestoreDb, 'trips', tripId));
                     }
                     
-                    if (tripToDelete?.pollId) {
+                    if (tripToDelete?.pollId && auth.currentUser) {
                         try {
                             await deleteDoc(doc(firestoreDb, 'votes', tripToDelete.pollId));
                         } catch (e) {
@@ -904,7 +905,7 @@ function App() {
         });
 
         // Run async database sync in background to match sync signature
-        if (activeUser) {
+        if (auth.currentUser) {
             const path = `globalAttendees/${targetId}`;
             setDoc(doc(firestoreDb, 'globalAttendees', targetId), cleanForFirestore(savedAttendee))
                 .catch(error => {
@@ -930,7 +931,8 @@ function App() {
                         updatedAt: new Date().toISOString()
                     };
                     // Queue background write to Cloud Firestore if matching user is authenticated
-                    if (activeUser && updatedTrip.ownerId === activeUser.uid) {
+                    const isEditable = activeUser && (updatedTrip.ownerId === activeUser.uid || !!updatedTrip.allowPublicEdit);
+                    if (auth.currentUser && isEditable) {
                         setDoc(doc(firestoreDb, 'trips', updatedTrip.id), cleanForFirestore(updatedTrip)).catch(err => {
                             console.warn(`Trip background Sync failed during attendee deletion for "${trip.title}":`, err);
                         });
@@ -943,7 +945,7 @@ function App() {
         });
 
         // Delete from Firestore if user is authenticated
-        if (activeUser) {
+        if (auth.currentUser) {
             try {
                 await deleteDoc(doc(firestoreDb, 'globalAttendees', attendeeId));
             } catch (error) {
@@ -1056,15 +1058,17 @@ function App() {
         // Optimistic UI update
         setVotes(prev => ({ ...prev, [pollId]: newPollVotes }));
 
-        const path = `votes/${pollId}`;
-        try {
-            await setDoc(doc(firestoreDb, 'votes', pollId), cleanForFirestore({
-                pollId,
-                ballots: newPollVotes,
-                updatedAt: new Date().toISOString()
-            }));
-        } catch (error) {
-            handleFirestoreError(error, OperationType.WRITE, path);
+        if (auth.currentUser) {
+            const path = `votes/${pollId}`;
+            try {
+                await setDoc(doc(firestoreDb, 'votes', pollId), cleanForFirestore({
+                    pollId,
+                    ballots: newPollVotes,
+                    updatedAt: new Date().toISOString()
+                }));
+            } catch (error) {
+                handleFirestoreError(error, OperationType.WRITE, path);
+            }
         }
     };
 
@@ -1238,8 +1242,8 @@ function App() {
                         setActiveTripId(null);
 
                         // 4. Resilient background write to Cloud Firestore if matching user is authenticated
-                        if (activeUser) {
-                            const currentUserUid = activeUser.uid;
+                        if (auth.currentUser) {
+                            const currentUserUid = auth.currentUser.uid;
                             cleanedTripsToState.forEach(tripToSave => {
                                 const docReady = {
                                     ...tripToSave,
