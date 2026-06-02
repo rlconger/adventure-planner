@@ -42,6 +42,35 @@ const cleanForFirestore = (obj: any): any => {
     return obj;
 };
 
+const getHeaderBgClass = (themeKey: Theme): string => {
+    switch (themeKey) {
+        case 'slate': return 'bg-slate-900 border-slate-800 text-white';
+        case 'sky': return 'bg-sky-950 border-sky-900 text-white';
+        case 'amber': return 'bg-amber-950 border-amber-900 text-white';
+        case 'emerald': return 'bg-emerald-950 border-emerald-900 text-white';
+        case 'rose': return 'bg-rose-950 border-rose-900 text-white';
+        default: return 'bg-sky-950 border-sky-900 text-white';
+    }
+};
+
+const renderLogoText = (themeKey: Theme, sizeClass: string = "text-2xl sm:text-3xl", isLightBg: boolean = false) => {
+    const mainColor = isLightBg 
+        ? 'text-gray-900 dark:text-white' 
+        : 'text-white';
+        
+    const subColor = themeKey === 'slate' ? 'text-orange-500 dark:text-orange-400 font-light'
+                  : themeKey === 'sky' ? 'text-orange-400 dark:text-orange-400 font-light'
+                  : themeKey === 'amber' ? 'text-amber-500 dark:text-amber-300 font-light'
+                  : themeKey === 'emerald' ? 'text-emerald-400 dark:text-emerald-300 font-light'
+                  : 'text-rose-500 dark:text-rose-400 font-light';
+
+    return (
+        <span className={`${sizeClass} font-black tracking-tight ${mainColor} uppercase leading-none`}>
+            Adventure <span className={subColor}>Planner</span>
+        </span>
+    );
+};
+
 // Helper function to ensure imported data is valid and has unique IDs
 const validateAndPrepareTrips = async (data: any, existingTrips: Trip[]): Promise<any[]> => {
     let tripsArray: any[] = [];
@@ -1317,11 +1346,9 @@ function App() {
     if (!activeUser) {
         return (
             <div className="min-h-screen flex flex-col justify-between bg-gray-50 dark:bg-gray-950 text-gray-1000 dark:text-gray-100 transition-colors duration-300 font-sans">
-                <header className="py-4 px-6 sm:px-8 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-white/85 dark:bg-gray-900/85 backdrop-blur-md">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-                            🏍️ Adventure Planner
-                        </span>
+                 <header className={`py-4 px-6 sm:px-8 border-b flex justify-between items-center transition-colors duration-300 ${getHeaderBgClass(theme)}`}>
+                    <div className="flex items-center gap-1.5 select-none text-left">
+                        {renderLogoText(theme, "text-xl", false)}
                     </div>
                     <ThemeSwitcher currentTheme={theme} setTheme={setTheme} />
                 </header>
@@ -1329,13 +1356,13 @@ function App() {
                 <div className="flex-grow flex items-center justify-center p-6 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
                     <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-8 space-y-8 animate-fade-in text-center">
                         <div className="space-y-3">
-                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 mb-2">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 mb-2">
                                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                                 </svg>
                             </div>
                             <h2 className="text-3xl font-extrabold text-gray-1000 dark:text-white tracking-tight">
-                                Adventure Planner
+                                {renderLogoText(theme, "text-3xl", true)}
                             </h2>
                             <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed max-w-xs mx-auto">
                                 Plan paths, manage GPX riders and waypoints, coordinate schedules, and build rosters with your custom dual-sport groups.
@@ -1383,47 +1410,47 @@ function App() {
 
     return (
         <div className="min-h-screen font-sans">
-            <header className={`sticky top-0 z-20 shadow-md ${THEMES[theme].bgClass}`}>
+            <header className={`sticky top-0 z-20 shadow-md transition-all duration-300 ${getHeaderBgClass(theme)}`}>
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center py-4 gap-4">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight animate-fade-in" onClick={handleBackToList} style={{cursor: 'pointer'}}>
-                        Adventure Planner
-                    </h1>
+                    <div className="flex items-center cursor-pointer animate-fade-in select-none" onClick={handleBackToList}>
+                        {renderLogoText(theme, "text-2xl sm:text-3xl", false)}
+                    </div>
                     
                     <div className="flex items-center gap-4">
                         <ThemeSwitcher currentTheme={theme} setTheme={setTheme} />
                         
                         <button
                             onClick={() => setIsRosterModalOpen(true)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center bg-white/70 dark:bg-gray-800/60 hover:bg-white dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-xs hover:scale-110 active:scale-95 transition-all cursor-pointer group"
+                            className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/20 text-white shadow-xs hover:scale-110 active:scale-95 transition-all cursor-pointer group"
                             title="Manage Roster"
                             aria-label="Manage Roster"
                         >
-                            <CogIcon className="h-4.5 w-4.5 text-gray-650 dark:text-gray-300 group-hover:rotate-45 transition-transform duration-300" />
+                            <CogIcon className="h-4.5 w-4.5 text-white group-hover:rotate-45 transition-transform duration-300" />
                         </button>
                         
                         {/* Google Auth Status / Actions */}
-                        <div className="flex items-center border-l pl-4 border-gray-300 dark:border-gray-700 gap-3">
+                        <div className="flex items-center border-l pl-4 border-white/15 gap-3">
                             {activeUser ? (
                                 <div className="flex items-center gap-2">
                                     {activeUser.photoURL && (
                                         <img 
                                             src={activeUser.photoURL} 
                                             alt={activeUser.displayName || "User Avatar"} 
-                                            className="w-8 h-8 rounded-full border border-gray-350 shadow-xs"
+                                            className="w-8 h-8 rounded-full border border-white/20 shadow-xs"
                                             referrerPolicy="no-referrer"
                                         />
                                     )}
                                     <div className="hidden md:block text-left">
-                                        <div className="text-xs font-semibold text-gray-850 leading-none">
+                                        <div className="text-xs font-semibold text-white leading-none">
                                             {activeUser.displayName || "Rider"}
                                         </div>
-                                        <div className="text-[10px] text-gray-500 leading-none mt-0.5">
+                                        <div className="text-[10px] text-white/70 leading-none mt-0.5">
                                             {activeUser.email}
                                         </div>
                                     </div>
                                     <button
                                         onClick={handleLogout}
-                                        className="text-xs font-medium text-red-650 hover:text-red-705 px-2 py-1 rounded bg-red-50 hover:bg-red-105 transition-colors cursor-pointer"
+                                        className="text-xs font-medium text-red-200 hover:text-white px-2 py-1 rounded bg-red-950/40 hover:bg-red-900/60 transition-colors cursor-pointer border border-red-900/30"
                                     >
                                         Sign Out
                                     </button>
