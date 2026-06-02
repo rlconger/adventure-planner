@@ -1109,72 +1109,40 @@ function App() {
                 });
 
                 // Decouple saving logic from the UI rendering cycle to prevent lagging and blocking
-                setTimeout(async () => {
+                setTimeout(() => {
                     try {
-                        let count = 0;
+                        // 1. First, save GPX files locally in parallel in standard non-blocking manner
                         for (const trip of validatedTrips) {
-                            count++;
-                            setImportProgress({
-                                status: 'saving',
-                                totalTrips: validatedTrips.length,
-                                currentTrip: count,
-                                currentTripTitle: trip.title,
-                                message: `Saving trip "${trip.title}" (${count} of ${validatedTrips.length})...`
-                            });
-
-                            // 1. Save GPX files in a local cache or background write (non-blocking)
                             if (Array.isArray(trip.gpxFiles)) {
                                 for (const gpx of trip.gpxFiles) {
                                     if (gpx.content) {
-                                        try {
-                                            await db.saveGpx({ id: gpx.id, content: gpx.content });
-                                        } catch (gpxErr) {
+                                        db.saveGpx({ id: gpx.id, content: gpx.content }).catch(gpxErr => {
                                             console.warn("Background GPX cache error (proceeding safely):", gpxErr);
-                                        }
+                                        });
                                     }
-                                }
-                            }
-
-                            // 2. Prepare the clean trip document
-                            const cleanGpxFiles = Array.isArray(trip.gpxFiles)
-                                ? trip.gpxFiles.map((g: any) => ({ id: g.id, name: g.name }))
-                                : [];
-
-                            const tripToSave = {
-                                ...trip,
-                                gpxFiles: cleanGpxFiles,
-                                ownerId: auth.currentUser?.uid || 'anonymous',
-                                updatedAt: new Date().toISOString()
-                            };
-
-                            // 3. Resilient write to Cloud Firestore if matching user is authenticated
-                            if (auth.currentUser) {
-                                try {
-                                    const tripRef = doc(firestoreDb, 'trips', tripToSave.id);
-                                    await setDoc(tripRef, cleanForFirestore(tripToSave)).catch(firestoreError => {
-                                        console.warn("Local representation updated instantly; cloud write is queued:", firestoreError);
-                                    });
-                                } catch (fieldWriteError) {
-                                    console.warn("Continuing resilient sync despite Firestore write issue:", fieldWriteError);
                                 }
                             }
                         }
 
-                        // Update local React state so that everything is immediately visible in the UI
+                        // 2. Prepare the clean trip documents for state
+                        const cleanedTripsToState = validatedTrips.map(vt => {
+                            const cleanGpxFiles = Array.isArray(vt.gpxFiles)
+                                ? vt.gpxFiles.map((g: any) => ({ id: g.id, name: g.name }))
+                                : [];
+                            
+                            return {
+                                ...vt,
+                                gpxFiles: cleanGpxFiles,
+                                ownerId: auth.currentUser?.uid || 'anonymous',
+                                updatedAt: new Date().toISOString()
+                            };
+                        });
+
+                        // 3. Update local React state so that everything is immediately visible in the UI
                         setTrips(prevTrips => {
                             const uniqueTrips = [...prevTrips];
-                            validatedTrips.forEach(vt => {
-                                const cleanGpxFiles = Array.isArray(vt.gpxFiles)
-                                    ? vt.gpxFiles.map((g: any) => ({ id: g.id, name: g.name }))
-                                    : [];
-                                
-                                const tripCleaned: Trip = {
-                                    ...vt,
-                                    gpxFiles: cleanGpxFiles,
-                                    ownerId: auth.currentUser?.uid || 'anonymous'
-                                };
-
-                                const index = uniqueTrips.findIndex(t => t.id === vt.id);
+                            cleanedTripsToState.forEach(tripCleaned => {
+                                const index = uniqueTrips.findIndex(t => t.id === tripCleaned.id);
                                 if (index >= 0) {
                                     uniqueTrips[index] = tripCleaned;
                                 } else {
@@ -1192,6 +1160,21 @@ function App() {
 
                         setView('list');
                         setActiveTripId(null);
+
+                        // 4. Resilient background write to Cloud Firestore if matching user is authenticated
+                        if (auth.currentUser) {
+                            const currentUserUid = auth.currentUser.uid;
+                            cleanedTripsToState.forEach(tripToSave => {
+                                const docReady = {
+                                    ...tripToSave,
+                                    ownerId: currentUserUid
+                                };
+                                const tripRef = doc(firestoreDb, 'trips', tripToSave.id);
+                                setDoc(tripRef, cleanForFirestore(docReady)).catch(firestoreError => {
+                                    console.warn(`Local-first representation updated instantly; cloud write for "${tripToSave.title}" is queued/failed:`, firestoreError);
+                                });
+                            });
+                        }
                     } catch (saveError) {
                         console.error("Failed to commit imported datasets to DB:", saveError);
                         setImportProgress({
@@ -1199,7 +1182,7 @@ function App() {
                             errorMessage: saveError instanceof Error ? saveError.message : "Failed to parse or write imported file contents to database."
                         });
                     }
-                }, 100);
+                }, 50);
     
             } catch (error) {
                 console.error("Failed to import trips:", error);
