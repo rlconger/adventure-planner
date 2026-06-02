@@ -323,10 +323,7 @@ function App() {
             const cloudTrips: Trip[] = [];
             snapshot.forEach((docSnap) => {
                 const data = docSnap.data() as Trip;
-                // Only sync trips owned by current user OR associated with active voting polls in the group
-                if (data.ownerId === activeUser.uid || data.pollId) {
-                    cloudTrips.push(data);
-                }
+                cloudTrips.push(data);
             });
             setTrips(cloudTrips);
         }, (error) => {
@@ -611,7 +608,7 @@ function App() {
         setIsTripFormOpen(true);
     };
     
-    const handleSaveTrip = async (tripData: Pick<Trip, 'title' | 'startDate' | 'endDate' | 'routeType' | 'pollId' | 'imageUrl'> & { gpxFiles: (GpxFile & { content?: string })[] }) => {
+    const handleSaveTrip = async (tripData: Pick<Trip, 'title' | 'startDate' | 'endDate' | 'routeType' | 'pollId' | 'imageUrl' | 'allowPublicEdit'> & { gpxFiles: (GpxFile & { content?: string })[] }) => {
         const tripToEditBeforeChanges = tripToEdit ? trips.find(t => t.id === tripToEdit.id) : null;
         const originalGpxIds = new Set(tripToEditBeforeChanges?.gpxFiles?.map(f => f.id) || []);
         
@@ -1306,6 +1303,73 @@ function App() {
         }
     };
 
+    if (!activeUser) {
+        return (
+            <div className="min-h-screen flex flex-col justify-between bg-gray-50 dark:bg-gray-950 text-gray-1000 dark:text-gray-100 transition-colors duration-300 font-sans">
+                <header className="py-4 px-6 sm:px-8 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-white/85 dark:bg-gray-900/85 backdrop-blur-md">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+                            🏍️ Adventure Planner
+                        </span>
+                    </div>
+                    <ThemeSwitcher currentTheme={theme} setTheme={setTheme} />
+                </header>
+
+                <div className="flex-grow flex items-center justify-center p-6 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
+                    <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-8 space-y-8 animate-fade-in text-center">
+                        <div className="space-y-3">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 mb-2">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                                </svg>
+                            </div>
+                            <h2 className="text-3xl font-extrabold text-gray-1000 dark:text-white tracking-tight">
+                                Adventure Planner
+                            </h2>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed max-w-xs mx-auto">
+                                Plan paths, manage GPX riders and waypoints, coordinate schedules, and build rosters with your custom dual-sport groups.
+                            </p>
+                        </div>
+
+                        {authError && (
+                            <div className="p-4 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-200 rounded-lg text-xs text-left border-l-4 border-amber-500 space-y-1">
+                                <span className="font-bold block">Authorization Issue</span>
+                                <p className="leading-relaxed">{authError}</p>
+                            </div>
+                        )}
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={handleLogin}
+                                className={`w-full py-3 px-4 rounded-xl font-bold text-white shadow-md flex items-center justify-center gap-3 transition-transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${THEMES[theme].buttonClass} ${THEMES[theme].buttonHoverClass}`}
+                            >
+                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12.24 10.285V13.4h6.887C18.2 15.614 15.645 18 12.24 18c-3.86 0-7-3.14-7-7s3.14-7 7-7c1.7 0 3.25.61 4.45 1.615l2.455-2.45C17.29 1.635 14.89 1 12.24 1 6.574 1 2 5.574 2 11.24s4.574 10.24 10.24 10.24c5.795 0 10.24-4.065 10.24-10.24 0-.69-.08-1.36-.22-2H12.24z" />
+                                </svg>
+                                <span>Sign in with Google</span>
+                            </button>
+
+                            <button
+                                onClick={handleBypassAuth}
+                                className="w-full py-3 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold border border-gray-305 dark:border-gray-700 flex items-center justify-center gap-2 transition-transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                            >
+                                🔑 Instant Demo Bypass
+                            </button>
+                        </div>
+
+                        <div className="text-[11px] text-gray-400 dark:text-gray-500 max-w-xs mx-auto">
+                            By logging in, you'll gain access to create, view, edit trips, configure group route legs, organize riders, and vote on trip calendars.
+                        </div>
+                    </div>
+                </div>
+
+                <footer className="py-4 text-center text-xs text-gray-400 dark:text-gray-500 border-t border-gray-150 dark:border-gray-850">
+                    &copy; 2026 Adventure Planner. All rights reserved.
+                </footer>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen font-sans">
             <header className={`sticky top-0 z-20 shadow-md ${THEMES[theme].bgClass}`}>
@@ -1370,34 +1434,6 @@ function App() {
             </header>
 
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                {!activeUser && (
-                    <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800/40 border-l-4 border-gray-400 dark:border-gray-500 rounded-lg text-gray-750 dark:text-gray-300 text-sm flex flex-col lg:flex-row justify-between lg:items-center gap-4 shadow-xs animate-fade-in">
-                        <div className="flex-1">
-                            <span className="font-bold text-gray-850 dark:text-white flex items-center gap-1.5 mb-1 text-sm">
-                                <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-                                Interactive View-Only Mode
-                            </span>
-                            <p className="leading-relaxed">
-                                You are signed out. You can browse travel lists, schedules, GPX maps, and print offline tank bag slips. To plan new adventures, edit legs, vote, or update rosters, please log in.
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 flex-shrink-0 self-start lg:self-center">
-                            <button
-                                onClick={handleLogin}
-                                className={`text-xs font-bold text-white px-3.5 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer ${THEMES[theme].buttonClass} ${THEMES[theme].buttonHoverClass}`}
-                            >
-                                Sign in with Google
-                            </button>
-                            <button
-                                onClick={handleBypassAuth}
-                                className="text-xs font-bold text-gray-700 dark:text-gray-250 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-650 border border-gray-305 dark:border-gray-600 px-3.5 py-2 rounded-md flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                                title="Instantly bypass browser sandbox third-party cookie restrictions and unlock editing"
-                            >
-                                🔑 Instant Demo Bypass
-                            </button>
-                        </div>
-                    </div>
-                )}
                 {authError && (
                     <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950/20 border-l-4 border-amber-500 rounded-lg text-amber-900 dark:text-amber-250 text-sm flex justify-between items-start gap-3 shadow-xs animate-fade-in">
                         <div className="flex-1">
@@ -1429,6 +1465,7 @@ function App() {
                         onFinalizeTrip={handleFinalizeTrip}
                         onPrintTrip={handlePrintTrip}
                         isSignedIn={!!activeUser}
+                        activeUserId={activeUser?.uid}
                     />
                 )}
                 {view === 'detail' && activeTrip && (
@@ -1450,6 +1487,7 @@ function App() {
                         theme={theme}
                         onPrintTrip={handlePrintTrip}
                         isSignedIn={!!activeUser}
+                        activeUserId={activeUser?.uid}
                     />
                 )}
             </main>

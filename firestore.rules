@@ -41,7 +41,7 @@ service cloud.firestore {
         && request.resource.data.title.size() <= 100
         && request.resource.data.ownerId == request.auth.uid;
       allow update: if isSignedIn() 
-        && (resource.data.ownerId == request.auth.uid)
+        && (resource.data.ownerId == request.auth.uid || resource.data.get('allowPublicEdit', false) == true)
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.id == resource.data.id;
       allow delete: if isSignedIn() 

@@ -21,6 +21,7 @@ interface TripListProps {
     onVote: (tripId: string, pollId: string) => void;
     onPrintTrip: (tripId: string) => void;
     isSignedIn?: boolean;
+    activeUserId?: string;
 }
 
 const formatDate = (dateString?: string) => {
@@ -28,7 +29,7 @@ const formatDate = (dateString?: string) => {
     return new Date(dateString.replace(/-/g, '/')).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const TripList: React.FC<TripListProps> = ({ trips, votes, voterName, onNewTrip, onSelectTrip, onImportTrips, onExportTrips, theme, onMarkTripComplete, onRestoreTrip, onFinalizeTrip, onCopyTrip, onVote, onPrintTrip, isSignedIn = false }) => {
+const TripList: React.FC<TripListProps> = ({ trips, votes, voterName, onNewTrip, onSelectTrip, onImportTrips, onExportTrips, theme, onMarkTripComplete, onRestoreTrip, onFinalizeTrip, onCopyTrip, onVote, onPrintTrip, isSignedIn = false, activeUserId }) => {
     const [activeTab, setActiveTab] = useState<TripStatus>(TripStatus.Upcoming);
     const themeClasses = THEMES[theme];
 
@@ -164,6 +165,7 @@ const TripList: React.FC<TripListProps> = ({ trips, votes, voterName, onNewTrip,
                         onCopyTrip={onCopyTrip}
                         onPrintTrip={onPrintTrip}
                         isSignedIn={isSignedIn}
+                        activeUserId={activeUserId}
                     />
                 ))}
             </div>

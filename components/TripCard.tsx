@@ -13,13 +13,14 @@ interface TripCardProps {
     onCopyTrip: (tripId: string) => void;
     onPrintTrip: (tripId: string) => void;
     isSignedIn?: boolean;
+    activeUserId?: string;
 }
 
 
 const DEFAULT_PAVED_IMAGE = 'https://www.madornomad.com/wp-content/uploads/2020/11/Suzuki-V-Strom-DL650A-Review-2.jpg';
 const DEFAULT_MIXED_IMAGE = 'https://t4.ftcdn.net/jpg/02/07/97/37/360_F_207973769_MqzKNrSHDvHxT4G7w5EXZmjpfVRiLfUY.jpg';
 
-const TripCard: React.FC<TripCardProps> = ({ trip, onSelectTrip, theme, onMarkTripComplete, onRestoreTrip, onFinalizeTrip, onCopyTrip, onPrintTrip, isSignedIn = false }) => {
+const TripCard: React.FC<TripCardProps> = ({ trip, onSelectTrip, theme, onMarkTripComplete, onRestoreTrip, onFinalizeTrip, onCopyTrip, onPrintTrip, isSignedIn = false, activeUserId }) => {
     const themeClasses = THEMES[theme];
     const isPaved = trip.routeType === RouteType.Paved;
     
@@ -28,6 +29,8 @@ const TripCard: React.FC<TripCardProps> = ({ trip, onSelectTrip, theme, onMarkTr
     const totalMiles = trip.legs.filter(leg => !leg.isTravelDay).reduce((sum, leg) => sum + (leg.miles || 0), 0);
     const numberOfDays = trip.legs.length;
     const rosterSize = trip.roster?.length || 0;
+    const isOwner = !trip.ownerId || trip.ownerId === 'anonymous' || (!!activeUserId && trip.ownerId === activeUserId);
+    const isEditable = isOwner || (isSignedIn && !!trip.allowPublicEdit);
 
     const formatDate = (dateString: string) => {
         if (!dateString) return 'N/A';
@@ -96,17 +99,17 @@ const TripCard: React.FC<TripCardProps> = ({ trip, onSelectTrip, theme, onMarkTr
                         </span>
                     </div>
                     <div className="flex items-center space-x-1">
-                        {isSignedIn && trip.status === TripStatus.Planning && (
+                        {isSignedIn && isEditable && trip.status === TripStatus.Planning && (
                             <button onClick={(e) => handleActionClick(e, () => onFinalizeTrip(trip.id))} title="Finalize Plan" className="p-1 rounded-full hover:bg-gray-200 transition-colors">
                                 <StarIcon className="h-6 w-6 text-amber-500 hover:text-amber-600"/>
                             </button>
                         )}
-                        {isSignedIn && trip.status === TripStatus.Upcoming && (
+                        {isSignedIn && isEditable && trip.status === TripStatus.Upcoming && (
                             <button onClick={(e) => handleActionClick(e, () => onMarkTripComplete(trip.id))} title="Mark as Complete" className="p-1 rounded-full hover:bg-gray-200 transition-colors">
                                 <CheckCircleIcon className="h-6 w-6 text-green-500 hover:text-green-700"/>
                             </button>
                         )}
-                        {isSignedIn && trip.status === TripStatus.Completed && (
+                        {isSignedIn && isEditable && trip.status === TripStatus.Completed && (
                              <button onClick={(e) => handleActionClick(e, () => onRestoreTrip(trip.id))} title="Restore to Upcoming" className="p-1 rounded-full hover:bg-gray-200 transition-colors">
                                 <ArrowUturnLeftIcon className="h-6 w-6 text-sky-500 hover:text-sky-700"/>
                              </button>

@@ -60,6 +60,7 @@ export interface Trip {
   gpxFiles?: GpxFile[];
   roster?: Attendee[];
   ownerId?: string;
+  allowPublicEdit?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

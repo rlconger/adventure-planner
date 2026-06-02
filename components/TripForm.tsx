@@ -8,7 +8,7 @@ type GpxFileWithContent = GpxFile & { content?: string };
 
 interface TripFormProps {
     onClose: () => void;
-    onSave: (trip: Pick<Trip, 'title' | 'startDate' | 'endDate' | 'routeType' | 'pollId' | 'imageUrl'> & { gpxFiles: GpxFileWithContent[] }) => void;
+    onSave: (trip: Pick<Trip, 'title' | 'startDate' | 'endDate' | 'routeType' | 'pollId' | 'imageUrl' | 'allowPublicEdit'> & { gpxFiles: GpxFileWithContent[] }) => void;
     tripToEdit: Trip | null;
     allTrips: Trip[];
     theme: Theme;
@@ -22,6 +22,7 @@ const TripForm: React.FC<TripFormProps> = ({ onClose, onSave, tripToEdit, allTri
     const [pollId, setPollId] = useState('');
     const [gpxFiles, setGpxFiles] = useState<GpxFileWithContent[]>([]);
     const [imageUrl, setImageUrl] = useState('');
+    const [allowPublicEdit, setAllowPublicEdit] = useState(false);
 
     const themeClasses = THEMES[theme];
     const formId = useId();
@@ -42,6 +43,7 @@ const TripForm: React.FC<TripFormProps> = ({ onClose, onSave, tripToEdit, allTri
             setPollId(tripToEdit.pollId || '');
             setGpxFiles(tripToEdit.gpxFiles || []);
             setImageUrl(tripToEdit.imageUrl || '');
+            setAllowPublicEdit(tripToEdit.allowPublicEdit || false);
         } else {
             // Reset for a new trip
             setTitle('');
@@ -51,6 +53,7 @@ const TripForm: React.FC<TripFormProps> = ({ onClose, onSave, tripToEdit, allTri
             setPollId('');
             setGpxFiles([]);
             setImageUrl('');
+            setAllowPublicEdit(false);
         }
     }, [tripToEdit]);
 
@@ -60,7 +63,7 @@ const TripForm: React.FC<TripFormProps> = ({ onClose, onSave, tripToEdit, allTri
             alert("Please provide a trip title.");
             return;
         }
-        onSave({ title, startDate, endDate, routeType, pollId: pollId.trim() || undefined, gpxFiles, imageUrl: imageUrl.trim() || undefined });
+        onSave({ title, startDate, endDate, routeType, pollId: pollId.trim() || undefined, gpxFiles, imageUrl: imageUrl.trim() || undefined, allowPublicEdit });
     };
 
     const handleGpxUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,6 +191,24 @@ const TripForm: React.FC<TripFormProps> = ({ onClose, onSave, tripToEdit, allTri
                         multiple
                     />
                     <p className="mt-1 text-xs text-gray-500">Upload GPX route files for this trip.</p>
+                </div>
+                <div className="border-t pt-4">
+                    <label className="flex items-start cursor-pointer">
+                        <div className="flex items-center h-5">
+                            <input
+                                id="allowPublicEdit"
+                                name="allowPublicEdit"
+                                type="checkbox"
+                                checked={allowPublicEdit}
+                                onChange={e => setAllowPublicEdit(e.target.checked)}
+                                className={`h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500`}
+                            />
+                        </div>
+                        <div className="ml-3 text-sm">
+                            <span className="font-semibold text-gray-800">Allow other users to edit this trip</span>
+                            <p className="text-gray-500">Enable this to allow any signed-in user to collaborate, manage legs, update times, and configure the roster.</p>
+                        </div>
+                    </label>
                 </div>
             </form>
         </Modal>
