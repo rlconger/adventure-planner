@@ -192,6 +192,7 @@ interface ImportProgress {
 function App() {
     const [user, setUser] = useState<User | null>(null);
     const [loadingAuth, setLoadingAuth] = useState(true);
+    const [authError, setAuthError] = useState<string | null>(null);
     const [importProgress, setImportProgress] = useState<ImportProgress>({ status: 'idle' });
 
     const [trips, setTrips] = useState<Trip[]>(() => {
@@ -285,6 +286,7 @@ function App() {
             if (currentUser) {
                 try {
                     await migrateLocalDataToCloud(currentUser);
+                    setAuthError(null);
                 } catch (err) {
                     console.error("Error migrating local data during login:", err);
                 }
@@ -446,14 +448,25 @@ function App() {
 
     const handleLogin = async () => {
         const provider = new GoogleAuthProvider();
+        setAuthError(null);
         try {
             const result = await signInWithPopup(auth, provider);
             if (result.user) {
                 await migrateLocalDataToCloud(result.user);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Login failed:", error);
-            alert("Google Login failed. Please check your browser popup permissions.");
+            const errorMsg = error?.message || String(error);
+            // Check if blocked by iframe, popup blocker, etc.
+            let userWarning = "Google Login failed. Please check your browser's third-party cookies or popup settings.";
+            if (errorMsg.includes("popup-blocked") || errorMsg.includes("popup-closed-by-user") || errorMsg.includes("cancelled-by-user")) {
+                userWarning = "The login popup was blocked or closed. Please allow popups for this site, or open the app in a new tab using the button at the top-right of your editor.";
+            } else if (window.self !== window.top) {
+                userWarning = "The Google Sign-In popup was blocked by the editor's preview sandbox. To log in securely, click the 'Open in a new tab' button at the top-right of your editor, then sign in there.";
+            } else {
+                userWarning = `Google Sign-In failed: ${errorMsg}. If you are inside the editor preview, try clicking 'Open in a new tab' at the top-right.`;
+            }
+            setAuthError(userWarning);
         }
     };
 
@@ -1280,11 +1293,11 @@ function App() {
                         
                         <button
                             onClick={() => setIsRosterModalOpen(true)}
-                            className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-800/40 border border-white/20 dark:border-gray-700/50 text-white dark:text-gray-200 transition-all hover:scale-110 active:scale-95 cursor-pointer group"
+                            className="w-8 h-8 rounded-full flex items-center justify-center bg-white/70 dark:bg-gray-800/60 hover:bg-white dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-xs hover:scale-110 active:scale-95 transition-all cursor-pointer group"
                             title="Manage Roster"
                             aria-label="Manage Roster"
                         >
-                            <CogIcon className="h-5 w-5 group-hover:rotate-45 transition-transform duration-300" />
+                            <CogIcon className="h-4.5 w-4.5 text-gray-650 dark:text-gray-300 group-hover:rotate-45 transition-transform duration-300" />
                         </button>
                         
                         {/* Google Auth Status / Actions */}
@@ -1331,6 +1344,20 @@ function App() {
             </header>
 
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+                {authError && (
+                    <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950/20 border-l-4 border-amber-500 rounded-lg text-amber-900 dark:text-amber-250 text-sm flex justify-between items-start gap-3 shadow-xs animate-fade-in">
+                        <div className="flex-1">
+                            <span className="font-bold block mb-1">Google Authentication Status</span>
+                            <p className="leading-relaxed">{authError}</p>
+                        </div>
+                        <button 
+                            onClick={() => setAuthError(null)} 
+                            className="text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 font-semibold text-xs py-0.5 px-2 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                )}
                 {view === 'list' && (
                     <TripList
                         trips={trips}
