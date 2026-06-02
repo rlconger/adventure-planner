@@ -22,11 +22,12 @@ interface TripDetailProps {
     onSaveGlobalAttendee: (attendeeData: Omit<Attendee, 'id'>, idToUpdate?: string) => Attendee;
     theme: Theme;
     onPrintTrip: (tripId: string) => void;
+    isSignedIn?: boolean;
 }
 
 type ActiveTab = 'legs' | 'map' | 'gpx' | 'roster';
 
-const TripDetail: React.FC<TripDetailProps> = ({ trip, onBack, onEditTrip, onDeleteTrip, onCopyTrip, onAddLeg, onEditLeg, onDeleteLeg, onDownloadGpx, onFinalizeTrip, onUpdateRoster, onSendItinerary, globalAttendees, onSaveGlobalAttendee, theme, onPrintTrip }) => {
+const TripDetail: React.FC<TripDetailProps> = ({ trip, onBack, onEditTrip, onDeleteTrip, onCopyTrip, onAddLeg, onEditLeg, onDeleteLeg, onDownloadGpx, onFinalizeTrip, onUpdateRoster, onSendItinerary, globalAttendees, onSaveGlobalAttendee, theme, onPrintTrip, isSignedIn = false }) => {
     const totalMiles = trip.legs.filter(leg => !leg.isTravelDay).reduce((sum, leg) => sum + (leg.miles || 0), 0);
     const themeClasses = THEMES[theme];
     
@@ -81,6 +82,7 @@ const TripDetail: React.FC<TripDetailProps> = ({ trip, onBack, onEditTrip, onDel
                     globalAttendees={globalAttendees}
                     onSaveGlobalAttendee={onSaveGlobalAttendee}
                     theme={theme} 
+                    isSignedIn={isSignedIn}
                 />;
             case 'legs':
             default:
@@ -88,25 +90,29 @@ const TripDetail: React.FC<TripDetailProps> = ({ trip, onBack, onEditTrip, onDel
                     <>
                         <div className="flex justify-between items-center my-6">
                             <h3 className="text-2xl font-bold">Trip Legs</h3>
-                             <button onClick={onAddLeg} className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}>
-                                <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
-                                Add Leg
-                            </button>
+                            {isSignedIn && (
+                                 <button onClick={onAddLeg} className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}>
+                                    <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
+                                    Add Leg
+                                </button>
+                            )}
                         </div>
                         {trip.legs.length > 0 ? (
                             <div className="space-y-4">
                                 {trip.legs.map((leg, index) => (
-                                    <LegCard key={leg.id} leg={leg} index={index} onEdit={() => onEditLeg(leg)} onDelete={() => onDeleteLeg(leg.id)} theme={theme} />
+                                    <LegCard key={leg.id} leg={leg} index={index} onEdit={() => onEditLeg(leg)} onDelete={() => onDeleteLeg(leg.id)} theme={theme} isSignedIn={isSignedIn} />
                                 ))}
                             </div>
                         ) : (
                             <div className="text-center py-12 border-2 border-dashed rounded-lg">
                                 <h4 className="text-xl font-semibold">No legs planned for this trip yet.</h4>
                                 <p className="text-gray-500 mt-2">Start by adding the first day of your journey!</p>
-                                 <button onClick={onAddLeg} className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}>
-                                    <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
-                                    Add First Leg
-                                </button>
+                                {isSignedIn && (
+                                     <button onClick={onAddLeg} className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}>
+                                        <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
+                                        Add First Leg
+                                    </button>
+                                )}
                             </div>
                         )}
                     </>
@@ -131,13 +137,17 @@ const TripDetail: React.FC<TripDetailProps> = ({ trip, onBack, onEditTrip, onDel
                         <p className="text-md text-gray-500">{formatDateRange(trip.startDate, trip.endDate)}</p>
                     </div>
                     <div className="flex items-center space-x-2 mt-4 sm:mt-0">
-                        {trip.status === TripStatus.Planning && (
+                        {isSignedIn && trip.status === TripStatus.Planning && (
                              <button onClick={() => onFinalizeTrip(trip.id)} className="p-2 rounded-full hover:bg-gray-200 transition-colors text-amber-500" title="Finalize Plan"><StarIcon className="h-5 w-5" /></button>
                         )}
                         <button onClick={() => onPrintTrip(trip.id)} className="p-2 rounded-full hover:bg-gray-200 transition-colors text-teal-600" title="Print Tank Bag Slip"><PrinterIcon className="h-5 w-5" /></button>
-                        <button onClick={() => onCopyTrip(trip.id)} className="p-2 rounded-full hover:bg-gray-200 transition-colors text-indigo-500" title="Copy Trip"><CopyIcon className="h-5 w-5" /></button>
-                        <button onClick={onEditTrip} className="p-2 rounded-full hover:bg-gray-200 transition-colors" title="Edit Trip"><PencilIcon className="h-5 w-5" /></button>
-                        <button onClick={() => onDeleteTrip(trip.id)} className="p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors" title="Delete Trip"><TrashIcon className="h-5 w-5" /></button>
+                        {isSignedIn && (
+                            <>
+                                <button onClick={() => onCopyTrip(trip.id)} className="p-2 rounded-full hover:bg-gray-200 transition-colors text-indigo-500" title="Copy Trip"><CopyIcon className="h-5 w-5" /></button>
+                                <button onClick={onEditTrip} className="p-2 rounded-full hover:bg-gray-200 transition-colors" title="Edit Trip"><PencilIcon className="h-5 w-5" /></button>
+                                <button onClick={() => onDeleteTrip(trip.id)} className="p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors" title="Delete Trip"><TrashIcon className="h-5 w-5" /></button>
+                            </>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center space-x-6 text-center">

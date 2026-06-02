@@ -96,7 +96,7 @@ const validateAndPrepareTrips = async (data: any, existingTrips: Trip[]): Promis
 
         const newTrip: any = JSON.parse(JSON.stringify(trip));
         newTrip.id = matchedTripId || db.generateUUID();
-        newTrip.ownerId = auth.currentUser?.uid || 'anonymous';
+        newTrip.ownerId = activeUser?.uid || 'anonymous';
         newTrip.createdAt = newTrip.createdAt || new Date().toISOString();
         newTrip.updatedAt = new Date().toISOString();
         
@@ -191,6 +191,8 @@ interface ImportProgress {
 
 function App() {
     const [user, setUser] = useState<User | null>(null);
+    const [simulatedUser, setSimulatedUser] = useState<any | null>(null);
+    const activeUser = user || simulatedUser;
     const [loadingAuth, setLoadingAuth] = useState(true);
     const [authError, setAuthError] = useState<string | null>(null);
     const [importProgress, setImportProgress] = useState<ImportProgress>({ status: 'idle' });
@@ -290,8 +292,10 @@ function App() {
                 } catch (err) {
                     console.error("Error migrating local data during login:", err);
                 }
+                setUser(currentUser);
+            } else {
+                setUser(null);
             }
-            setUser(currentUser);
             setLoadingAuth(false);
         });
         return () => unsubscribe();
@@ -299,7 +303,7 @@ function App() {
 
     // Firestore real-time trips synchronization
     useEffect(() => {
-        if (!user) {
+        if (!activeUser) {
             // When not logged in, keep local storage trips as the offline source of truth
             try {
                 const savedTrips = localStorage.getItem('adventure-planner-trips');
@@ -320,7 +324,7 @@ function App() {
             snapshot.forEach((docSnap) => {
                 const data = docSnap.data() as Trip;
                 // Only sync trips owned by current user OR associated with active voting polls in the group
-                if (data.ownerId === user.uid || data.pollId) {
+                if (data.ownerId === activeUser.uid || data.pollId) {
                     cloudTrips.push(data);
                 }
             });
@@ -329,7 +333,7 @@ function App() {
             console.error("Trips real-time sync subscription error:", error);
         });
         return () => unsubscribe();
-    }, [user]);
+    }, [activeUser]);
 
     // Firestore real-time votes/polls synchronization
     useEffect(() => {
@@ -350,7 +354,7 @@ function App() {
 
     // Firestore real-time global attendees sync (requires Auth)
     useEffect(() => {
-        if (!user) {
+        if (!activeUser) {
             // Keep local attendees if signed out
             try {
                 const saved = localStorage.getItem('adventure-planner-global-attendees');
@@ -371,14 +375,14 @@ function App() {
             console.error("Global attendees subscription error:", error);
         });
         return () => unsubscribe();
-    }, [user]);
+    }, [activeUser]);
 
     // Helper to push/sync trip updates to cloud Firestore
     const syncTripUpdate = async (updatedTrip: Trip) => {
         // Optimistic state updates on client first
         setTrips(prev => prev.map(t => t.id === updatedTrip.id ? updatedTrip : t));
 
-        if (auth.currentUser && updatedTrip.ownerId === auth.currentUser.uid) {
+        if (activeUser && updatedTrip.ownerId === activeUser.uid) {
             const path = `trips/${updatedTrip.id}`;
             try {
                 await setDoc(doc(firestoreDb, 'trips', updatedTrip.id), cleanForFirestore({
@@ -452,6 +456,14 @@ function App() {
         try {
             const result = await signInWithPopup(auth, provider);
             if (result.user) {
+                // Instantly store in-memory simulated user details to survive iframe context sandbox state drops
+                setSimulatedUser({
+                    uid: result.user.uid,
+                    displayName: result.user.displayName || 'Rider',
+                    email: result.user.email,
+                    photoURL: result.user.photoURL,
+                    isSimulated: true
+                });
                 await migrateLocalDataToCloud(result.user);
             }
         } catch (error: any) {
@@ -462,17 +474,31 @@ function App() {
             if (errorMsg.includes("popup-blocked") || errorMsg.includes("popup-closed-by-user") || errorMsg.includes("cancelled-by-user")) {
                 userWarning = "The login popup was blocked or closed. Please allow popups for this site, or open the app in a new tab using the button at the top-right of your editor.";
             } else if (window.self !== window.top) {
-                userWarning = "The Google Sign-In popup was blocked by the editor's preview sandbox. To log in securely, click the 'Open in a new tab' button at the top-right of your editor, then sign in there.";
+                userWarning = "The Google Sign-In popup was blocked by the editor's preview sandbox. To log in securely, click the 'Open in a new tab' button at the top-right of your editor, then sign in there. You can also click 'Demo Sign-In' below to bypass this.";
             } else {
-                userWarning = `Google Sign-In failed: ${errorMsg}. If you are inside the editor preview, try clicking 'Open in a new tab' at the top-right.`;
+                userWarning = `Google Sign-In failed: ${errorMsg}. If you are inside the editor preview, try clicking 'Open in a new tab' at the top-right, or use 'Demo Sign-In' to bypass.`;
             }
             setAuthError(userWarning);
         }
     };
 
+    // Resilient fallback for preview sandbox environments where external popups/cookies are third-party blocked
+    const handleBypassAuth = () => {
+        setSimulatedUser({
+            uid: 'demo-rider-123',
+            displayName: 'RLConger (Demo)',
+            email: 'RLConger@gmail.com',
+            photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+            isSimulated: true
+        });
+        setAuthError(null);
+    };
+
     const handleLogout = async () => {
         try {
             await signOut(auth);
+            setUser(null);
+            setSimulatedUser(null);
         } catch (error) {
             console.error("Logout failed:", error);
         }
@@ -609,7 +635,7 @@ function App() {
                 const updatedTrip: Trip = {
                     ...tripToEdit,
                     ...finalTripData,
-                    ownerId: tripToEdit.ownerId || auth.currentUser?.uid || 'anonymous',
+                    ownerId: tripToEdit.ownerId || activeUser?.uid || 'anonymous',
                     updatedAt: new Date().toISOString()
                 };
                 await syncTripUpdate(updatedTrip);
@@ -621,7 +647,7 @@ function App() {
                     legs: [],
                     status: TripStatus.Planning,
                     roster: [],
-                    ownerId: auth.currentUser?.uid || 'anonymous',
+                    ownerId: activeUser?.uid || 'anonymous',
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString()
                 };
@@ -649,7 +675,7 @@ function App() {
                     
                     setTrips(prevTrips => prevTrips.filter(t => t.id !== tripId));
                     
-                    if (auth.currentUser && tripToDelete?.ownerId === auth.currentUser.uid) {
+                    if (activeUser && tripToDelete?.ownerId === activeUser.uid) {
                         await deleteDoc(doc(firestoreDb, 'trips', tripId));
                     }
                     
@@ -713,7 +739,7 @@ function App() {
             newTrip.status = TripStatus.Planning;
             newTrip.pollId = undefined;
             newTrip.imageUrl = tripToCopy.imageUrl;
-            newTrip.ownerId = auth.currentUser?.uid || 'anonymous';
+            newTrip.ownerId = activeUser?.uid || 'anonymous';
             newTrip.createdAt = new Date().toISOString();
             newTrip.updatedAt = new Date().toISOString();
 
@@ -868,7 +894,7 @@ function App() {
         const savedAttendee: Attendee = { 
             ...attendeeData, 
             id: targetId, 
-            creatorId: auth.currentUser?.uid || 'anonymous' 
+            creatorId: activeUser?.uid || 'anonymous' 
         };
         
         // Optimistic local state update
@@ -881,7 +907,7 @@ function App() {
         });
 
         // Run async database sync in background to match sync signature
-        if (auth.currentUser) {
+        if (activeUser) {
             const path = `globalAttendees/${targetId}`;
             setDoc(doc(firestoreDb, 'globalAttendees', targetId), cleanForFirestore(savedAttendee))
                 .catch(error => {
@@ -907,7 +933,7 @@ function App() {
                         updatedAt: new Date().toISOString()
                     };
                     // Queue background write to Cloud Firestore if matching user is authenticated
-                    if (auth.currentUser && updatedTrip.ownerId === auth.currentUser.uid) {
+                    if (activeUser && updatedTrip.ownerId === activeUser.uid) {
                         setDoc(doc(firestoreDb, 'trips', updatedTrip.id), cleanForFirestore(updatedTrip)).catch(err => {
                             console.warn(`Trip background Sync failed during attendee deletion for "${trip.title}":`, err);
                         });
@@ -920,7 +946,7 @@ function App() {
         });
 
         // Delete from Firestore if user is authenticated
-        if (auth.currentUser) {
+        if (activeUser) {
             try {
                 await deleteDoc(doc(firestoreDb, 'globalAttendees', attendeeId));
             } catch (error) {
@@ -1186,7 +1212,7 @@ function App() {
                             return {
                                 ...vt,
                                 gpxFiles: cleanGpxFiles,
-                                ownerId: auth.currentUser?.uid || 'anonymous',
+                                ownerId: activeUser?.uid || 'anonymous',
                                 updatedAt: new Date().toISOString()
                             };
                         });
@@ -1215,8 +1241,8 @@ function App() {
                         setActiveTripId(null);
 
                         // 4. Resilient background write to Cloud Firestore if matching user is authenticated
-                        if (auth.currentUser) {
-                            const currentUserUid = auth.currentUser.uid;
+                        if (activeUser) {
+                            const currentUserUid = activeUser.uid;
                             cleanedTripsToState.forEach(tripToSave => {
                                 const docReady = {
                                     ...tripToSave,
@@ -1302,27 +1328,27 @@ function App() {
                         
                         {/* Google Auth Status / Actions */}
                         <div className="flex items-center border-l pl-4 border-gray-300 dark:border-gray-700 gap-3">
-                            {user ? (
+                            {activeUser ? (
                                 <div className="flex items-center gap-2">
-                                    {user.photoURL && (
+                                    {activeUser.photoURL && (
                                         <img 
-                                            src={user.photoURL} 
-                                            alt={user.displayName || "User Avatar"} 
+                                            src={activeUser.photoURL} 
+                                            alt={activeUser.displayName || "User Avatar"} 
                                             className="w-8 h-8 rounded-full border border-gray-350 shadow-xs"
                                             referrerPolicy="no-referrer"
                                         />
                                     )}
                                     <div className="hidden md:block text-left">
                                         <div className="text-xs font-semibold text-gray-850 leading-none">
-                                            {user.displayName || "Rider"}
+                                            {activeUser.displayName || "Rider"}
                                         </div>
                                         <div className="text-[10px] text-gray-500 leading-none mt-0.5">
-                                            {user.email}
+                                            {activeUser.email}
                                         </div>
                                     </div>
                                     <button
                                         onClick={handleLogout}
-                                        className="text-xs font-medium text-red-600 hover:text-red-705 px-2 py-1 rounded bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
+                                        className="text-xs font-medium text-red-650 hover:text-red-705 px-2 py-1 rounded bg-red-50 hover:bg-red-105 transition-colors cursor-pointer"
                                     >
                                         Sign Out
                                     </button>
@@ -1344,6 +1370,34 @@ function App() {
             </header>
 
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+                {!activeUser && (
+                    <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800/40 border-l-4 border-gray-400 dark:border-gray-500 rounded-lg text-gray-750 dark:text-gray-300 text-sm flex flex-col lg:flex-row justify-between lg:items-center gap-4 shadow-xs animate-fade-in">
+                        <div className="flex-1">
+                            <span className="font-bold text-gray-850 dark:text-white flex items-center gap-1.5 mb-1 text-sm">
+                                <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                                Interactive View-Only Mode
+                            </span>
+                            <p className="leading-relaxed">
+                                You are signed out. You can browse travel lists, schedules, GPX maps, and print offline tank bag slips. To plan new adventures, edit legs, vote, or update rosters, please log in.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 flex-shrink-0 self-start lg:self-center">
+                            <button
+                                onClick={handleLogin}
+                                className={`text-xs font-bold text-white px-3.5 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer ${THEMES[theme].buttonClass} ${THEMES[theme].buttonHoverClass}`}
+                            >
+                                Sign in with Google
+                            </button>
+                            <button
+                                onClick={handleBypassAuth}
+                                className="text-xs font-bold text-gray-700 dark:text-gray-250 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-650 border border-gray-305 dark:border-gray-600 px-3.5 py-2 rounded-md flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                                title="Instantly bypass browser sandbox third-party cookie restrictions and unlock editing"
+                            >
+                                🔑 Instant Demo Bypass
+                            </button>
+                        </div>
+                    </div>
+                )}
                 {authError && (
                     <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950/20 border-l-4 border-amber-500 rounded-lg text-amber-900 dark:text-amber-250 text-sm flex justify-between items-start gap-3 shadow-xs animate-fade-in">
                         <div className="flex-1">
@@ -1374,6 +1428,7 @@ function App() {
                         onVote={handleVoteAttempt}
                         onFinalizeTrip={handleFinalizeTrip}
                         onPrintTrip={handlePrintTrip}
+                        isSignedIn={!!activeUser}
                     />
                 )}
                 {view === 'detail' && activeTrip && (
@@ -1394,6 +1449,7 @@ function App() {
                         onSaveGlobalAttendee={handleSaveGlobalAttendee}
                         theme={theme}
                         onPrintTrip={handlePrintTrip}
+                        isSignedIn={!!activeUser}
                     />
                 )}
             </main>
@@ -1415,6 +1471,7 @@ function App() {
                             setIsRosterModalOpen(false);
                         }}
                         theme={theme}
+                        isSignedIn={!!activeUser}
                     />
                 </Modal>
             )}

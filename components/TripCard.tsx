@@ -12,13 +12,14 @@ interface TripCardProps {
     onFinalizeTrip: (tripId: string) => void;
     onCopyTrip: (tripId: string) => void;
     onPrintTrip: (tripId: string) => void;
+    isSignedIn?: boolean;
 }
 
 
 const DEFAULT_PAVED_IMAGE = 'https://www.madornomad.com/wp-content/uploads/2020/11/Suzuki-V-Strom-DL650A-Review-2.jpg';
 const DEFAULT_MIXED_IMAGE = 'https://t4.ftcdn.net/jpg/02/07/97/37/360_F_207973769_MqzKNrSHDvHxT4G7w5EXZmjpfVRiLfUY.jpg';
 
-const TripCard: React.FC<TripCardProps> = ({ trip, onSelectTrip, theme, onMarkTripComplete, onRestoreTrip, onFinalizeTrip, onCopyTrip, onPrintTrip }) => {
+const TripCard: React.FC<TripCardProps> = ({ trip, onSelectTrip, theme, onMarkTripComplete, onRestoreTrip, onFinalizeTrip, onCopyTrip, onPrintTrip, isSignedIn = false }) => {
     const themeClasses = THEMES[theme];
     const isPaved = trip.routeType === RouteType.Paved;
     
@@ -95,27 +96,29 @@ const TripCard: React.FC<TripCardProps> = ({ trip, onSelectTrip, theme, onMarkTr
                         </span>
                     </div>
                     <div className="flex items-center space-x-1">
-                        {trip.status === TripStatus.Planning && (
+                        {isSignedIn && trip.status === TripStatus.Planning && (
                             <button onClick={(e) => handleActionClick(e, () => onFinalizeTrip(trip.id))} title="Finalize Plan" className="p-1 rounded-full hover:bg-gray-200 transition-colors">
                                 <StarIcon className="h-6 w-6 text-amber-500 hover:text-amber-600"/>
                             </button>
                         )}
-                        {trip.status === TripStatus.Upcoming && (
+                        {isSignedIn && trip.status === TripStatus.Upcoming && (
                             <button onClick={(e) => handleActionClick(e, () => onMarkTripComplete(trip.id))} title="Mark as Complete" className="p-1 rounded-full hover:bg-gray-200 transition-colors">
                                 <CheckCircleIcon className="h-6 w-6 text-green-500 hover:text-green-700"/>
                             </button>
                         )}
-                        {trip.status === TripStatus.Completed && (
+                        {isSignedIn && trip.status === TripStatus.Completed && (
                              <button onClick={(e) => handleActionClick(e, () => onRestoreTrip(trip.id))} title="Restore to Upcoming" className="p-1 rounded-full hover:bg-gray-200 transition-colors">
                                 <ArrowUturnLeftIcon className="h-6 w-6 text-sky-500 hover:text-sky-700"/>
-                            </button>
+                             </button>
                         )}
                           <button onClick={(e) => handleActionClick(e, () => onPrintTrip(trip.id))} title="Print Tank Bag Slip" className="p-1 rounded-full hover:bg-gray-200 transition-colors">
                             <PrinterIcon className="h-6 w-6 text-teal-600 hover:text-teal-800"/>
                         </button>
-                         <button onClick={(e) => handleActionClick(e, () => onCopyTrip(trip.id))} title="Copy to New Trip" className="p-1 rounded-full hover:bg-gray-200 transition-colors">
-                            <CopyIcon className="h-6 w-6 text-indigo-500 hover:text-indigo-700"/>
-                        </button>
+                        {isSignedIn && (
+                             <button onClick={(e) => handleActionClick(e, () => onCopyTrip(trip.id))} title="Copy to New Trip" className="p-1 rounded-full hover:bg-gray-200 transition-colors">
+                                <CopyIcon className="h-6 w-6 text-indigo-500 hover:text-indigo-700"/>
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

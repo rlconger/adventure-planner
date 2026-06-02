@@ -12,9 +12,10 @@ interface TripRosterProps {
     globalAttendees: Attendee[];
     onSaveGlobalAttendee: (attendeeData: Omit<Attendee, 'id'>, idToUpdate?: string) => Attendee;
     theme: Theme;
+    isSignedIn?: boolean;
 }
 
-const TripRoster: React.FC<TripRosterProps> = ({ trip, onUpdateRoster, onSendItinerary, globalAttendees, onSaveGlobalAttendee, theme }) => {
+const TripRoster: React.FC<TripRosterProps> = ({ trip, onUpdateRoster, onSendItinerary, globalAttendees, onSaveGlobalAttendee, theme, isSignedIn = false }) => {
     const [isEditFormOpen, setIsEditFormOpen] = useState(false);
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
     const [attendeeToEdit, setAttendeeToEdit] = useState<Attendee | null>(null);
@@ -57,20 +58,22 @@ const TripRoster: React.FC<TripRosterProps> = ({ trip, onUpdateRoster, onSendIti
                 <h3 className="text-2xl font-bold flex items-center">
                     Trip Roster ({roster.length})
                 </h3>
-                 <div className="flex items-center space-x-2">
-                     <button 
-                        onClick={onSendItinerary} 
-                        disabled={roster.length === 0}
-                        className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass} disabled:bg-gray-400 disabled:cursor-not-allowed`}
-                    >
-                        <EnvelopeIcon className="-ml-1 mr-2 h-5 w-5" />
-                        Send Itinerary
-                    </button>
-                    <button onClick={() => setIsSelectionModalOpen(true)} className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}>
-                        <UsersIcon className="-ml-1 mr-2 h-5 w-5" />
-                        Manage Roster
-                    </button>
-                 </div>
+                 {isSignedIn && (
+                     <div className="flex items-center space-x-2">
+                         <button 
+                            onClick={onSendItinerary} 
+                            disabled={roster.length === 0}
+                            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass} disabled:bg-gray-400 disabled:cursor-not-allowed`}
+                        >
+                            <EnvelopeIcon className="-ml-1 mr-2 h-5 w-5" />
+                            Send Itinerary
+                        </button>
+                        <button onClick={() => setIsSelectionModalOpen(true)} className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}>
+                            <UsersIcon className="-ml-1 mr-2 h-5 w-5" />
+                            Manage Roster
+                        </button>
+                     </div>
+                 )}
             </div>
             {roster.length > 0 ? (
                 <div className="space-y-3 p-4 bg-white rounded-lg shadow-md border border-gray-200">
@@ -93,10 +96,12 @@ const TripRoster: React.FC<TripRosterProps> = ({ trip, onUpdateRoster, onSendIti
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center space-x-1 flex-shrink-0">
-                                <button onClick={() => handleOpenEditForm(attendee)} className="p-2 rounded-full hover:bg-gray-200 transition-colors" title="Edit Attendee"><PencilIcon className="h-5 w-5" /></button>
-                                <button onClick={() => handleDeleteAttendee(attendee.id)} className="p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors" title="Remove Attendee"><TrashIcon className="h-5 w-5" /></button>
-                            </div>
+                            {isSignedIn && (
+                                <div className="flex items-center space-x-1 flex-shrink-0">
+                                    <button onClick={() => handleOpenEditForm(attendee)} className="p-2 rounded-full hover:bg-gray-200 transition-colors" title="Edit Attendee"><PencilIcon className="h-5 w-5" /></button>
+                                    <button onClick={() => handleDeleteAttendee(attendee.id)} className="p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors" title="Remove Attendee"><TrashIcon className="h-5 w-5" /></button>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

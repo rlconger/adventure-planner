@@ -10,6 +10,7 @@ interface GlobalRosterProps {
     onDeleteGlobalAttendee: (attendeeId: string) => void;
     onSelectTrip: (tripId: string) => void;
     theme: Theme;
+    isSignedIn?: boolean;
 }
 
 const GlobalRoster: React.FC<GlobalRosterProps> = ({
@@ -18,7 +19,8 @@ const GlobalRoster: React.FC<GlobalRosterProps> = ({
     onSaveGlobalAttendee,
     onDeleteGlobalAttendee,
     onSelectTrip,
-    theme
+    theme,
+    isSignedIn = false
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -131,13 +133,15 @@ const GlobalRoster: React.FC<GlobalRosterProps> = ({
                         Manage your overall database of riders, friends, and co-travelers here.
                     </p>
                 </div>
-                <button
-                    onClick={handleOpenAddForm}
-                    className={`inline-flex items-center self-start sm:self-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}
-                >
-                    <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
-                    Add New Person
-                </button>
+                {isSignedIn && (
+                    <button
+                        onClick={handleOpenAddForm}
+                        className={`inline-flex items-center self-start sm:self-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}
+                    >
+                        <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
+                        Add New Person
+                    </button>
+                )}
             </div>
 
             {/* Search and Filters */}
@@ -250,22 +254,24 @@ const GlobalRoster: React.FC<GlobalRosterProps> = ({
                                 </div>
 
                                 {/* Custom quick action footer */}
-                                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end space-x-2">
-                                    <button
-                                        onClick={() => handleOpenEditForm(attendee)}
-                                        className="p-1.5 rounded-full hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
-                                        title="Edit contact info"
-                                    >
-                                        <PencilIcon className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteClick(attendee)}
-                                        className="p-1.5 rounded-full hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors"
-                                        title="Delete from list"
-                                    >
-                                        <TrashIcon className="h-4 w-4" />
-                                    </button>
-                                </div>
+                                {isSignedIn && (
+                                    <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end space-x-2">
+                                        <button
+                                            onClick={() => handleOpenEditForm(attendee)}
+                                            className="p-1.5 rounded-full hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                                            title="Edit contact info"
+                                        >
+                                            <PencilIcon className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteClick(attendee)}
+                                            className="p-1.5 rounded-full hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors"
+                                            title="Delete from list"
+                                        >
+                                            <TrashIcon className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}

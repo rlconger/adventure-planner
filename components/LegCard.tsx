@@ -8,6 +8,7 @@ interface LegCardProps {
     onEdit: () => void;
     onDelete: () => void;
     theme: Theme;
+    isSignedIn?: boolean;
 }
 
 const AccommodationIcon: React.FC<{ type: AccommodationType; className?: string; }> = ({ type, className }) => {
@@ -26,7 +27,7 @@ const AccommodationIcon: React.FC<{ type: AccommodationType; className?: string;
     }
 };
 
-const LegCard: React.FC<LegCardProps> = ({ leg, index, onEdit, onDelete, theme }) => {
+const LegCard: React.FC<LegCardProps> = ({ leg, index, onEdit, onDelete, theme, isSignedIn = false }) => {
     const themeClasses = THEMES[theme];
 
     const formatDate = (dateString?: string) => {
@@ -55,10 +56,12 @@ const LegCard: React.FC<LegCardProps> = ({ leg, index, onEdit, onDelete, theme }
                             <MapPinIcon className="h-5 w-5 mr-2 text-green-500"/> {leg.startLocation} &rarr; <MapPinIcon className="h-5 w-5 mx-2 text-red-500"/> {leg.endLocation}
                         </div>
                     </div>
-                    <div className="flex items-center space-x-1">
-                        <button onClick={onEdit} className="p-2 rounded-full hover:bg-gray-200 transition-colors"><PencilIcon className="h-5 w-5" /></button>
-                        <button onClick={onDelete} className="p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors"><TrashIcon className="h-5 w-5" /></button>
-                    </div>
+                    {isSignedIn && (
+                        <div className="flex items-center space-x-1">
+                            <button onClick={onEdit} className="p-2 rounded-full hover:bg-gray-200 transition-colors"><PencilIcon className="h-5 w-5" /></button>
+                            <button onClick={onDelete} className="p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors"><TrashIcon className="h-5 w-5" /></button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">

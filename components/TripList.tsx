@@ -20,6 +20,7 @@ interface TripListProps {
     onCopyTrip: (tripId: string) => void;
     onVote: (tripId: string, pollId: string) => void;
     onPrintTrip: (tripId: string) => void;
+    isSignedIn?: boolean;
 }
 
 const formatDate = (dateString?: string) => {
@@ -27,7 +28,7 @@ const formatDate = (dateString?: string) => {
     return new Date(dateString.replace(/-/g, '/')).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const TripList: React.FC<TripListProps> = ({ trips, votes, voterName, onNewTrip, onSelectTrip, onImportTrips, onExportTrips, theme, onMarkTripComplete, onRestoreTrip, onFinalizeTrip, onCopyTrip, onVote, onPrintTrip }) => {
+const TripList: React.FC<TripListProps> = ({ trips, votes, voterName, onNewTrip, onSelectTrip, onImportTrips, onExportTrips, theme, onMarkTripComplete, onRestoreTrip, onFinalizeTrip, onCopyTrip, onVote, onPrintTrip, isSignedIn = false }) => {
     const [activeTab, setActiveTab] = useState<TripStatus>(TripStatus.Upcoming);
     const themeClasses = THEMES[theme];
 
@@ -162,6 +163,7 @@ const TripList: React.FC<TripListProps> = ({ trips, votes, voterName, onNewTrip,
                         onFinalizeTrip={onFinalizeTrip}
                         onCopyTrip={onCopyTrip}
                         onPrintTrip={onPrintTrip}
+                        isSignedIn={isSignedIn}
                     />
                 ))}
             </div>
@@ -215,13 +217,21 @@ const TripList: React.FC<TripListProps> = ({ trips, votes, voterName, onNewTrip,
                                             </div>
                                             <button
                                                 onClick={() => onVote(trip.id, pollId)}
-                                                disabled={userSelectedThis}
-                                                className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${userSelectedThis
-                                                        ? `bg-green-600 text-white`
-                                                        : `${themeClasses.buttonClass} text-white ${themeClasses.buttonHoverClass}`
-                                                    }`}
+                                                disabled={!isSignedIn || userSelectedThis}
+                                                className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${
+                                                    !isSignedIn
+                                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed border border-gray-300'
+                                                        : userSelectedThis
+                                                            ? `bg-green-600 text-white`
+                                                            : `${themeClasses.buttonClass} text-white ${themeClasses.buttonHoverClass}`
+                                                }`}
                                             >
-                                                {userSelectedThis ? <span className="flex items-center"><CheckIcon className="h-4 w-4 mr-1.5"/> Voted</span> : 'Vote'}
+                                                {userSelectedThis 
+                                                    ? <span className="flex items-center"><CheckIcon className="h-4 w-4 mr-1.5"/> Voted</span> 
+                                                    : !isSignedIn 
+                                                        ? 'Sign in to vote' 
+                                                        : 'Vote'
+                                                }
                                             </button>
                                         </div>
                                     </div>
@@ -259,13 +269,15 @@ const TripList: React.FC<TripListProps> = ({ trips, votes, voterName, onNewTrip,
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-bold tracking-tight">Your Adventures</h2>
                 <div className="flex items-center space-x-2">
-                    <button
-                        onClick={onImportTrips}
-                        className={`p-2 rounded-full ${themeClasses.primaryDarkTextClass} ${themeClasses.lightBgClass} ${themeClasses.lightBgHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass} transition-colors`}
-                        title="Import Trips from JSON"
-                    >
-                        <UploadIcon className="h-5 w-5" />
-                    </button>
+                    {isSignedIn && (
+                        <button
+                            onClick={onImportTrips}
+                            className={`p-2 rounded-full ${themeClasses.primaryDarkTextClass} ${themeClasses.lightBgClass} ${themeClasses.lightBgHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass} transition-colors`}
+                            title="Import Trips from JSON"
+                        >
+                            <UploadIcon className="h-5 w-5" />
+                        </button>
+                    )}
                      <button
                         onClick={onExportTrips}
                         className={`p-2 rounded-full ${themeClasses.primaryDarkTextClass} ${themeClasses.lightBgClass} ${themeClasses.lightBgHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass} transition-colors`}
@@ -273,13 +285,15 @@ const TripList: React.FC<TripListProps> = ({ trips, votes, voterName, onNewTrip,
                     >
                         <DownloadIcon className="h-5 w-5" />
                     </button>
-                    <button
-                        onClick={onNewTrip}
-                        className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}
-                    >
-                        <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
-                        New Trip
-                    </button>
+                    {isSignedIn && (
+                        <button
+                            onClick={onNewTrip}
+                            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${themeClasses.buttonClass} ${themeClasses.buttonHoverClass} focus:outline-none focus:ring-2 focus:ring-offset-2 ${themeClasses.ringClass}`}
+                        >
+                            <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
+                            New Trip
+                        </button>
+                    )}
                 </div>
             </div>
 
