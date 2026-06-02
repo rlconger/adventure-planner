@@ -12,6 +12,7 @@ import Modal from './components/Modal';
 import VoterNameModal from './components/VoterNameModal';
 import { TankBagPrintModal } from './components/TankBagPrintModal';
 import * as db from './db';
+import GlobalRoster from './components/GlobalRoster';
 
 type Votes = { [pollId: string]: { [voterName: string]: string } }; // pollId -> voterName -> votedTripId
 
@@ -258,6 +259,7 @@ function App() {
     });
 
     const [view, setView] = useState<'list' | 'detail'>('list');
+    const [mainTab, setMainTab] = useState<'trips' | 'roster'>('trips');
     const [activeTripId, setActiveTripId] = useState<string | null>(null);
     
     const [isTripFormOpen, setIsTripFormOpen] = useState(false);
@@ -744,6 +746,7 @@ function App() {
     const handleSelectTrip = (tripId: string) => {
         setActiveTripId(tripId);
         setView('detail');
+        setMainTab('trips');
     };
 
     const handleOpenLegForm = (leg: Leg | null = null) => {
@@ -874,6 +877,43 @@ function App() {
         }
         
         return savedAttendee;
+    };
+
+    const handleDeleteGlobalAttendee = async (attendeeId: string) => {
+        // Optimistic state update: remove from global list
+        setGlobalAttendees(prev => prev.filter(a => a.id !== attendeeId));
+        
+        // Also remove them from any trip roster list they are attending
+        setTrips(prev => {
+            const updatedTrips = prev.map(trip => {
+                if (trip.roster && trip.roster.some(a => a.id === attendeeId)) {
+                    const updatedRoster = trip.roster.filter(a => a.id !== attendeeId);
+                    const updatedTrip = {
+                        ...trip,
+                        roster: updatedRoster,
+                        updatedAt: new Date().toISOString()
+                    };
+                    // Queue background write to Cloud Firestore if matching user is authenticated
+                    if (auth.currentUser && updatedTrip.ownerId === auth.currentUser.uid) {
+                        setDoc(doc(firestoreDb, 'trips', updatedTrip.id), cleanForFirestore(updatedTrip)).catch(err => {
+                            console.warn(`Trip background Sync failed during attendee deletion for "${trip.title}":`, err);
+                        });
+                    }
+                    return updatedTrip;
+                }
+                return trip;
+            });
+            return updatedTrips;
+        });
+
+        // Delete from Firestore if user is authenticated
+        if (auth.currentUser) {
+            try {
+                await deleteDoc(doc(firestoreDb, 'globalAttendees', attendeeId));
+            } catch (error) {
+                console.error("Failed to delete global attendee from Firestore:", error);
+            }
+        }
     };
 
 
@@ -1007,6 +1047,7 @@ function App() {
     const handleBackToList = () => {
         setView('list');
         setActiveTripId(null);
+        setMainTab('trips');
     };
 
     const handleExportTrips = async () => {
@@ -1231,9 +1272,39 @@ function App() {
         <div className="min-h-screen font-sans">
             <header className={`sticky top-0 z-20 shadow-md ${THEMES[theme].bgClass}`}>
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center py-4 gap-4">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" onClick={handleBackToList} style={{cursor: 'pointer'}}>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight animate-fade-in" onClick={handleBackToList} style={{cursor: 'pointer'}}>
                         Adventure Planner
                     </h1>
+                    
+                    {/* Navigation Tabs */}
+                    <div className="flex bg-white/40 dark:bg-gray-800/40 p-1 rounded-lg border border-gray-200/50 backdrop-blur-xs">
+                        <button
+                            onClick={() => {
+                                setMainTab('trips');
+                                setView('list');
+                            }}
+                            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all cursor-pointer ${
+                                mainTab === 'trips' && view === 'list'
+                                    ? `bg-white dark:bg-gray-700 shadow-xs text-gray-950 dark:text-white`
+                                    : `text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200`
+                            }`}
+                        >
+                            Trips
+                        </button>
+                        <button
+                            onClick={() => {
+                                setMainTab('roster');
+                                setView('list');
+                            }}
+                            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all cursor-pointer ${
+                                mainTab === 'roster' && view === 'list'
+                                    ? `bg-white dark:bg-gray-700 shadow-xs text-gray-950 dark:text-white`
+                                    : `text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200`
+                            }`}
+                        >
+                            Overall Roster
+                        </button>
+                    </div>
                     
                     <div className="flex items-center gap-4">
                         <ThemeSwitcher currentTheme={theme} setTheme={setTheme} />
@@ -1282,7 +1353,7 @@ function App() {
             </header>
 
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                {view === 'list' && (
+                {view === 'list' && mainTab === 'trips' && (
                     <TripList
                         trips={trips}
                         votes={votes}
@@ -1298,6 +1369,16 @@ function App() {
                         onVote={handleVoteAttempt}
                         onFinalizeTrip={handleFinalizeTrip}
                         onPrintTrip={handlePrintTrip}
+                    />
+                )}
+                {view === 'list' && mainTab === 'roster' && (
+                    <GlobalRoster
+                        globalAttendees={globalAttendees}
+                        trips={trips}
+                        onSaveGlobalAttendee={handleSaveGlobalAttendee}
+                        onDeleteGlobalAttendee={handleDeleteGlobalAttendee}
+                        onSelectTrip={handleSelectTrip}
+                        theme={theme}
                     />
                 )}
                 {view === 'detail' && activeTrip && (
