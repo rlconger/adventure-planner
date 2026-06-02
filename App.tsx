@@ -97,6 +97,7 @@ const validateAndPrepareTrips = async (data: any, existingTrips: Trip[]): Promis
         const newTrip: any = JSON.parse(JSON.stringify(trip));
         newTrip.id = matchedTripId || db.generateUUID();
         newTrip.ownerId = activeUser?.uid || 'anonymous';
+        newTrip.ownerName = activeUser?.displayName || activeUser?.email || '';
         newTrip.createdAt = newTrip.createdAt || new Date().toISOString();
         newTrip.updatedAt = new Date().toISOString();
         
@@ -408,6 +409,7 @@ function App() {
                     const migratedTrip: Trip = {
                         ...trip,
                         ownerId: currentUser.uid,
+                        ownerName: currentUser.displayName || currentUser.email || '',
                         createdAt: trip.createdAt || new Date().toISOString(),
                         updatedAt: new Date().toISOString()
                     };
@@ -634,6 +636,7 @@ function App() {
                     ...tripToEdit,
                     ...finalTripData,
                     ownerId: tripToEdit.ownerId || activeUser?.uid || 'anonymous',
+                    ownerName: tripToEdit.ownerName || activeUser?.displayName || activeUser?.email || '',
                     updatedAt: new Date().toISOString()
                 };
                 await syncTripUpdate(updatedTrip);
@@ -646,6 +649,7 @@ function App() {
                     status: TripStatus.Planning,
                     roster: [],
                     ownerId: activeUser?.uid || 'anonymous',
+                    ownerName: activeUser?.displayName || activeUser?.email || '',
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString()
                 };
@@ -738,6 +742,7 @@ function App() {
             newTrip.pollId = undefined;
             newTrip.imageUrl = tripToCopy.imageUrl;
             newTrip.ownerId = activeUser?.uid || 'anonymous';
+            newTrip.ownerName = activeUser?.displayName || activeUser?.email || '';
             newTrip.createdAt = new Date().toISOString();
             newTrip.updatedAt = new Date().toISOString();
 
@@ -1214,6 +1219,7 @@ function App() {
                                 ...vt,
                                 gpxFiles: cleanGpxFiles,
                                 ownerId: activeUser?.uid || 'anonymous',
+                                ownerName: activeUser?.displayName || activeUser?.email || '',
                                 updatedAt: new Date().toISOString()
                             };
                         });
@@ -1247,7 +1253,8 @@ function App() {
                             cleanedTripsToState.forEach(tripToSave => {
                                 const docReady = {
                                     ...tripToSave,
-                                    ownerId: currentUserUid
+                                    ownerId: currentUserUid,
+                                    ownerName: auth.currentUser?.displayName || auth.currentUser?.email || ''
                                 };
                                 const tripRef = doc(firestoreDb, 'trips', tripToSave.id);
                                 setDoc(tripRef, cleanForFirestore(docReady)).catch(firestoreError => {

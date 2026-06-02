@@ -86,8 +86,16 @@ const TripCard: React.FC<TripCardProps> = ({ trip, onSelectTrip, theme, onMarkTr
                 </div>
 
                 <div className="w-1/3 relative">
-                    <img src={imageUrl} alt={trip.title} className="absolute h-full w-full object-cover" />
+                    <img src={imageUrl} alt={trip.title} className="absolute h-full w-full object-cover animate-fade-in" />
                     <div className="absolute inset-0 bg-gradient-to-r from-white to-transparent"></div>
+                    {trip.ownerName && (
+                        <div 
+                            className="absolute bottom-2 right-2 bg-white/75 dark:bg-gray-900/75 backdrop-blur-xs text-[10px] font-bold text-gray-800 dark:text-gray-200 px-1.5 py-0.5 rounded border border-gray-200/50 dark:border-gray-700/50 shadow-xs max-w-[90%] truncate pointer-events-none select-none"
+                            title={`Plan organized by ${trip.ownerName}`}
+                        >
+                            By {trip.ownerName}
+                        </div>
+                    )}
                 </div>
             </div>
             <div className={`border-t ${themeClasses.borderClass} px-5 py-3 bg-gray-50/80 backdrop-blur-sm`}>
