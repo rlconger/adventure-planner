@@ -7,9 +7,10 @@ interface ModalProps {
     onClose: () => void;
     title: string;
     footer?: ReactNode;
+    maxWidthClass?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ children, onClose, title, footer }) => {
+const Modal: React.FC<ModalProps> = ({ children, onClose, title, footer, maxWidthClass }) => {
     const backdropRef = useRef<HTMLDivElement>(null);
     const mouseDownTarget = useRef<EventTarget | null>(null);
 
@@ -46,7 +47,7 @@ const Modal: React.FC<ModalProps> = ({ children, onClose, title, footer }) => {
             role="dialog"
             aria-modal="true"
         >
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl transform transition-all flex flex-col max-h-[90vh]">
+            <div className={`bg-white rounded-lg shadow-xl w-full ${maxWidthClass || 'max-w-2xl'} transform transition-all flex flex-col max-h-[90vh]`}>
                 <header className="bg-gray-100 px-6 py-4 rounded-t-lg flex justify-between items-center flex-shrink-0 border-b border-gray-200">
                     <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">

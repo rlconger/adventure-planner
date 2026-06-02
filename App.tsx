@@ -13,6 +13,7 @@ import VoterNameModal from './components/VoterNameModal';
 import { TankBagPrintModal } from './components/TankBagPrintModal';
 import * as db from './db';
 import GlobalRoster from './components/GlobalRoster';
+import { CogIcon } from './components/icons';
 
 type Votes = { [pollId: string]: { [voterName: string]: string } }; // pollId -> voterName -> votedTripId
 
@@ -259,7 +260,7 @@ function App() {
     });
 
     const [view, setView] = useState<'list' | 'detail'>('list');
-    const [mainTab, setMainTab] = useState<'trips' | 'roster'>('trips');
+    const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
     const [activeTripId, setActiveTripId] = useState<string | null>(null);
     
     const [isTripFormOpen, setIsTripFormOpen] = useState(false);
@@ -746,7 +747,6 @@ function App() {
     const handleSelectTrip = (tripId: string) => {
         setActiveTripId(tripId);
         setView('detail');
-        setMainTab('trips');
     };
 
     const handleOpenLegForm = (leg: Leg | null = null) => {
@@ -1045,9 +1045,8 @@ function App() {
     };
 
     const handleBackToList = () => {
-        setView('list');
-        setActiveTripId(null);
-        setMainTab('trips');
+         setView('list');
+         setActiveTripId(null);
     };
 
     const handleExportTrips = async () => {
@@ -1276,38 +1275,17 @@ function App() {
                         Adventure Planner
                     </h1>
                     
-                    {/* Navigation Tabs */}
-                    <div className="flex bg-white/40 dark:bg-gray-800/40 p-1 rounded-lg border border-gray-200/50 backdrop-blur-xs">
-                        <button
-                            onClick={() => {
-                                setMainTab('trips');
-                                setView('list');
-                            }}
-                            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all cursor-pointer ${
-                                mainTab === 'trips' && view === 'list'
-                                    ? `bg-white dark:bg-gray-700 shadow-xs text-gray-950 dark:text-white`
-                                    : `text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200`
-                            }`}
-                        >
-                            Trips
-                        </button>
-                        <button
-                            onClick={() => {
-                                setMainTab('roster');
-                                setView('list');
-                            }}
-                            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all cursor-pointer ${
-                                mainTab === 'roster' && view === 'list'
-                                    ? `bg-white dark:bg-gray-700 shadow-xs text-gray-950 dark:text-white`
-                                    : `text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200`
-                            }`}
-                        >
-                            Overall Roster
-                        </button>
-                    </div>
-                    
                     <div className="flex items-center gap-4">
                         <ThemeSwitcher currentTheme={theme} setTheme={setTheme} />
+                        
+                        <button
+                            onClick={() => setIsRosterModalOpen(true)}
+                            className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 dark:bg-gray-800/20 hover:bg-white/20 dark:hover:bg-gray-800/40 border border-white/20 dark:border-gray-700/50 text-white dark:text-gray-200 transition-all hover:scale-110 active:scale-95 cursor-pointer group"
+                            title="Manage Roster"
+                            aria-label="Manage Roster"
+                        >
+                            <CogIcon className="h-5 w-5 group-hover:rotate-45 transition-transform duration-300" />
+                        </button>
                         
                         {/* Google Auth Status / Actions */}
                         <div className="flex items-center border-l pl-4 border-gray-300 dark:border-gray-700 gap-3">
@@ -1353,7 +1331,7 @@ function App() {
             </header>
 
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                {view === 'list' && mainTab === 'trips' && (
+                {view === 'list' && (
                     <TripList
                         trips={trips}
                         votes={votes}
@@ -1369,16 +1347,6 @@ function App() {
                         onVote={handleVoteAttempt}
                         onFinalizeTrip={handleFinalizeTrip}
                         onPrintTrip={handlePrintTrip}
-                    />
-                )}
-                {view === 'list' && mainTab === 'roster' && (
-                    <GlobalRoster
-                        globalAttendees={globalAttendees}
-                        trips={trips}
-                        onSaveGlobalAttendee={handleSaveGlobalAttendee}
-                        onDeleteGlobalAttendee={handleDeleteGlobalAttendee}
-                        onSelectTrip={handleSelectTrip}
-                        theme={theme}
                     />
                 )}
                 {view === 'detail' && activeTrip && (
@@ -1402,6 +1370,27 @@ function App() {
                     />
                 )}
             </main>
+
+            {/* Overall Roster Modal */}
+            {isRosterModalOpen && (
+                <Modal
+                    onClose={() => setIsRosterModalOpen(false)}
+                    title="Main Roster & Contact Directory"
+                    maxWidthClass="max-w-5xl"
+                >
+                    <GlobalRoster
+                        globalAttendees={globalAttendees}
+                        trips={trips}
+                        onSaveGlobalAttendee={handleSaveGlobalAttendee}
+                        onDeleteGlobalAttendee={handleDeleteGlobalAttendee}
+                        onSelectTrip={(tripId) => {
+                            handleSelectTrip(tripId);
+                            setIsRosterModalOpen(false);
+                        }}
+                        theme={theme}
+                    />
+                </Modal>
+            )}
 
             {isTripFormOpen && (
                 <TripForm
